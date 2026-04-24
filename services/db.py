@@ -121,10 +121,29 @@ def init_db() -> bool:
                 created_by   VARCHAR(320) NOT NULL DEFAULT 'system'
             );
         """)
+        # Table des utilisateurs du portail (accès restreint par application)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS portal_users (
+                id           SERIAL       PRIMARY KEY,
+                email        VARCHAR(320) NOT NULL UNIQUE,
+                display_name VARCHAR(200) NOT NULL DEFAULT '',
+                all_access   BOOLEAN      NOT NULL DEFAULT FALSE,
+                created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+                created_by   VARCHAR(320) NOT NULL DEFAULT 'system'
+            );
+        """)
+        # Table de liaison utilisateur <-> projets autorisés
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS user_project_access (
+                user_id    INT NOT NULL REFERENCES portal_users(id) ON DELETE CASCADE,
+                project_id INT NOT NULL REFERENCES projects(id)     ON DELETE CASCADE,
+                PRIMARY KEY (user_id, project_id)
+            );
+        """)
         conn.commit()
         cur.close()
         conn.close()
-        logger.info("[db] Tables 'projects' et 'admins' prêtes.")
+        logger.info("[db] Tables 'projects', 'admins', 'portal_users', 'user_project_access' prêtes.")
         return True
     except Exception as exc:
         logger.error("[db] init_db échoué : %s", exc)
@@ -408,3 +427,154 @@ def admin_count() -> int:
     except Exception as exc:
         logger.error("[db] admin_count : %s", exc)
         return 0
+
+
+# ─────────────────────────────────────────────────────────────
+#  Gestion des utilisateurs du portail (accès par application)
+# ─────────────────────────────────────────────────────────────
+
+_USER_COLS = ("id", "email", "display_name", "all_access", "created_at", "created_by")
+
+
+def _to_user_dict(row: tuple) -> dict:
+    d = dict(zip(_USER_COLS, row))
+    if isinstance(d.get("created_at"), datetime):
+        d["created_at"] = d["created_at"].isoformat()
+    return d
+
+
+def get_portal_users() -> list[dict]:
+    """Retourne tous les utilisateurs du portail, avec leurs project_ids autorisés."""
+    if not DB_AVAILABLE:
+        return []
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT {', '.join(_USER_COLS)} FROM portal_users ORDER BY email ASC;"
+        )
+        users = [_to_user_dict(r) for r in cur.fetchall()]
+        # Charger les accès projets pour chaque utilisateur
+        if users:
+            cur.execute(
+                "SELECT user_id, project_id FROM user_project_access "
+                "WHERE user_id = ANY(%s);",
+                ([u["id"] for u in users],)
+            )
+            access_map: dict[int, list[int]] = {}
+            for uid, pid in cur.fetchall():
+                access_map.setdefault(uid, []).append(pid)
+            for u in users:
+                u["project_ids"] = access_map.get(u["id"], [])
+        cur.close()
+        conn.close()
+        return users
+    except Exception as exc:
+        logger.error("[db] get_portal_users : %s", exc)
+        return []
+
+
+def upsert_portal_user(
+    email: str,
+    display_name: str,
+    all_access: bool,
+    project_ids: list[int],
+    created_by: str,
+) -> dict | None:
+    """
+    Crée ou met à jour un utilisateur du portail.
+    Remplace intégralement ses accès projets.
+    Retourne le dict utilisateur ou None en cas d'erreur.
+    """
+    if not DB_AVAILABLE:
+        return None
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            INSERT INTO portal_users (email, display_name, all_access, created_by)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (email) DO UPDATE SET
+                display_name = EXCLUDED.display_name,
+                all_access   = EXCLUDED.all_access
+            RETURNING {', '.join(_USER_COLS)};
+            """,
+            (email.strip().lower(), display_name.strip(), bool(all_access), created_by.strip()),
+        )
+        user = _to_user_dict(cur.fetchone())
+        uid = user["id"]
+        # Remplacer les accès projets
+        cur.execute("DELETE FROM user_project_access WHERE user_id = %s;", (uid,))
+        if project_ids:
+            cur.executemany(
+                "INSERT INTO user_project_access (user_id, project_id) VALUES (%s, %s) "
+                "ON CONFLICT DO NOTHING;",
+                [(uid, int(pid)) for pid in project_ids],
+            )
+        conn.commit()
+        user["project_ids"] = list(project_ids)
+        cur.close()
+        conn.close()
+        return user
+    except Exception as exc:
+        logger.error("[db] upsert_portal_user : %s", exc)
+        return None
+
+
+def delete_portal_user(user_id: int) -> bool:
+    """Supprime un utilisateur du portail (et ses accès par CASCADE). Retourne True si supprimé."""
+    if not DB_AVAILABLE:
+        return False
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM portal_users WHERE id = %s;", (int(user_id),))
+        deleted = cur.rowcount > 0
+        conn.commit()
+        cur.close()
+        conn.close()
+        return deleted
+    except Exception as exc:
+        logger.error("[db] delete_portal_user(%s) : %s", user_id, exc)
+        return False
+
+
+def get_user_allowed_project_ids(email: str) -> list[int] | None:
+    """
+    Retourne la liste des project_id autorisés pour cet email.
+    - None  → utilisateur non trouvé dans portal_users → accès complet (comportement legacy)
+    - []    → liste vide (aucun accès, si all_access=False)
+    - [...]  → ids explicitement autorisés
+    - all_access=True → None (accès complet)
+    """
+    if not DB_AVAILABLE or not email:
+        return None
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, all_access FROM portal_users WHERE LOWER(email) = LOWER(%s) LIMIT 1;",
+            (email.strip(),)
+        )
+        row = cur.fetchone()
+        if row is None:
+            cur.close()
+            conn.close()
+            return None  # pas dans la table → accès complet
+        uid, all_access = row
+        if all_access:
+            cur.close()
+            conn.close()
+            return None  # accès total explicite
+        cur.execute(
+            "SELECT project_id FROM user_project_access WHERE user_id = %s;",
+            (uid,)
+        )
+        ids = [r[0] for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return ids
+    except Exception as exc:
+        logger.error("[db] get_user_allowed_project_ids : %s", exc)
+        return None

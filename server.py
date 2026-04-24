@@ -115,6 +115,10 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_admin_api_list()
         elif path == "/admin/api/admins":
             self._handle_admin_api_list_admins()
+        elif path == "/admin/api/users":
+            self._handle_admin_api_list_users()
+        elif path == "/admin/api/projects/all":
+            self._handle_admin_api_all_projects_simple()
         else:
             super().do_GET()
 
@@ -125,6 +129,8 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_admin_api_create()
         elif path == "/admin/api/admins":
             self._handle_admin_api_add()
+        elif path == "/admin/api/users":
+            self._handle_admin_api_upsert_user()
         else:
             self.send_error(404)
 
@@ -142,10 +148,13 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         path   = parsed.path
         m_proj = re.match(r"^/admin/api/projects/(\d+)$", path)
         m_adm  = re.match(r"^/admin/api/admins/(\d+)$", path)
+        m_usr  = re.match(r"^/admin/api/users/(\d+)$", path)
         if m_proj:
             self._handle_admin_api_delete(int(m_proj.group(1)))
         elif m_adm:
             self._handle_admin_api_delete_admin(int(m_adm.group(1)))
+        elif m_usr:
+            self._handle_admin_api_delete_user(int(m_usr.group(1)))
         else:
             self.send_error(404)
 
@@ -256,7 +265,8 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # Injection des cartes dynamiques depuis la base de données
-        content = content.replace("{{CARDS_HTML}}", self._build_cards_html())
+        user_email = (user or {}).get("email", "") if user else ""
+        content = content.replace("{{CARDS_HTML}}", self._build_cards_html(user_email))
 
         # Bouton espace admin : visible seulement pour les admins
         if is_admin:
@@ -284,7 +294,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
     # -- Génération des cartes HTML depuis la DB ----------
     @staticmethod
-    def _build_cards_html() -> str:
+    def _build_cards_html(user_email: str = "") -> str:
         if _db is None or not DB_AVAILABLE:
             return (
                 '<div class="no-apps">'
@@ -303,6 +313,9 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
                 '<a href="/admin">Ouvrez l\'espace admin</a> pour ajouter vos premiers projets.</p>'
                 '</div>'
             )
+
+        # Récupère les IDs autorisés (None = accès complet)
+        allowed_ids = _db.get_user_allowed_project_ids(user_email) if user_email else None
 
         STATUS_LABELS = {
             "online":      ("", "En ligne"),
@@ -326,19 +339,36 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
                 for t in (p.get("tags") or "").split(",")
                 if t.strip()
             )
-            parts.append(
-                f'<a class="card" href="{purl}" target="_blank" data-name="{search_data}">'
-                f'<div class="card-header">'
-                f'<div class="card-icon-wrap {icon_color}"><i class="{icon_cls}"></i></div>'
-                f'<i class="fa-solid fa-arrow-up-right card-arrow"></i>'
-                f'</div>'
-                f'<div class="card-body"><h3>{name}</h3><p>{desc}</p></div>'
-                f'<div class="card-footer">'
-                f'{tags_html}'
-                f'<span class="card-status">'
-                f'<span class="status-dot{dot_cls}"></span> {lbl}'
-                f'</span></div></a>'
-            )
+            # Vérification d'accès
+            has_access = allowed_ids is None or p["id"] in allowed_ids
+            if has_access:
+                parts.append(
+                    f'<a class="card" href="{purl}" target="_blank" data-name="{search_data}">'
+                    f'<div class="card-header">'
+                    f'<div class="card-icon-wrap {icon_color}"><i class="{icon_cls}"></i></div>'
+                    f'<i class="fa-solid fa-arrow-up-right card-arrow"></i>'
+                    f'</div>'
+                    f'<div class="card-body"><h3>{name}</h3><p>{desc}</p></div>'
+                    f'<div class="card-footer">'
+                    f'{tags_html}'
+                    f'<span class="card-status">'
+                    f'<span class="status-dot{dot_cls}"></span> {lbl}'
+                    f'</span></div></a>'
+                )
+            else:
+                parts.append(
+                    f'<div class="card card--locked" data-name="{search_data}">'
+                    f'<div class="card-header">'
+                    f'<div class="card-icon-wrap {icon_color}"><i class="{icon_cls}"></i></div>'
+                    f'<i class="fa-solid fa-lock card-arrow card-lock-icon"></i>'
+                    f'</div>'
+                    f'<div class="card-body"><h3>{name}</h3><p>{desc}</p></div>'
+                    f'<div class="card-footer">'
+                    f'{tags_html}'
+                    f'<span class="card-status">'
+                    f'<span class="status-dot{dot_cls}"></span> {lbl}'
+                    f'</span></div></div>'
+                )
         return "\n".join(parts)
 
     # -- Espace admin : page HTML -------------------------
@@ -479,6 +509,59 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         deleted = _db.delete_admin(admin_id) if _db else False
         if not deleted:
             self._send_json({"error": "Administrateur introuvable"}, 404)
+            return
+        self._send_json({"ok": True})
+
+    # -- Admin API : liste des utilisateurs du portail -----
+    def _handle_admin_api_list_users(self) -> None:
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        self._send_json(_db.get_portal_users() if _db else [])
+
+    # -- Admin API : liste simplifiée des projets (id+name) --
+    def _handle_admin_api_all_projects_simple(self) -> None:
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        projects = _db.get_all_projects() if _db else []
+        self._send_json([{"id": p["id"], "name": p["name"]} for p in projects])
+
+    # -- Admin API : créer/modifier un utilisateur du portail
+    def _handle_admin_api_upsert_user(self) -> None:
+        is_adm, actor = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        data = self._read_json_body()
+        if not data or not data.get("email"):
+            self._send_json({"error": "L'email est obligatoire"}, 400)
+            return
+        email = data["email"].strip().lower()
+        if "@" not in email or len(email) < 5:
+            self._send_json({"error": "Email invalide"}, 400)
+            return
+        display_name = data.get("display_name", "").strip()
+        all_access   = bool(data.get("all_access", False))
+        project_ids  = [int(i) for i in data.get("project_ids", [])]
+        created_by   = (actor or {}).get("email", "admin") if actor else "admin"
+        result = _db.upsert_portal_user(email, display_name, all_access, project_ids, created_by) if _db else None
+        if result is None:
+            self._send_json({"error": "Erreur lors de l'enregistrement"}, 500)
+            return
+        self._send_json(result, 201)
+
+    # -- Admin API : supprimer un utilisateur du portail ----
+    def _handle_admin_api_delete_user(self, user_id: int) -> None:
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        deleted = _db.delete_portal_user(user_id) if _db else False
+        if not deleted:
+            self._send_json({"error": "Utilisateur introuvable"}, 404)
             return
         self._send_json({"ok": True})
 

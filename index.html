@@ -417,6 +417,19 @@
 
     .card:active { transform: translateY(-3px) scale(0.99); }
 
+    /* Carte verrouillée (accès non autorisé) */
+    .card--locked {
+      cursor: not-allowed;
+      opacity: 0.45;
+      filter: grayscale(60%);
+      pointer-events: none;
+    }
+    .card--locked .card-lock-icon {
+      color: #888;
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
     /* Card icon */
     .card-icon-wrap {
       width: 56px;

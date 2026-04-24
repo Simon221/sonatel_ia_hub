@@ -686,6 +686,232 @@
       vertical-align: middle;
     }
 
+    /* ── Section Utilisateurs ────────────────────────────── */
+    .users-section {
+      margin-top: 40px;
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .users-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .users-section-header h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0;
+    }
+    .btn-new-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 9px 20px;
+      font-size: 0.87rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .users-table-wrap { overflow-x: auto; }
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.87rem;
+    }
+    .users-table th {
+      padding: 12px 16px;
+      text-align: left;
+      color: var(--text-secondary);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .users-table td {
+      padding: 12px 16px;
+      color: var(--text);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table .empty-row td {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 32px;
+    }
+    .access-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .access-pill.all {
+      background: rgba(0,179,89,0.15);
+      color: #00cc66;
+      border: 1px solid rgba(0,179,89,0.25);
+    }
+    .access-pill.partial {
+      background: rgba(240,170,30,0.15);
+      color: #f0a81e;
+      border: 1px solid rgba(240,170,30,0.25);
+    }
+    .btn-edit-user {
+      background: rgba(0,179,89,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(0,179,89,0.2);
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: inherit;
+      margin-right: 6px;
+    }
+    .btn-del-user {
+      background: rgba(237,73,80,0.13);
+      color: var(--danger);
+      border: 1px solid rgba(237,73,80,0.22);
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    /* Modal utilisateur */
+    .user-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .user-modal-overlay.open { display: flex; }
+    .user-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 32px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 88vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .user-modal h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: var(--text);
+    }
+    .user-modal .form-group {
+      margin-bottom: 18px;
+    }
+    .user-modal label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      letter-spacing: 0.4px;
+    }
+    .user-modal input[type="email"],
+    .user-modal input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .user-modal input:focus { outline: none; border-color: var(--accent); }
+    .all-access-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(0,179,89,0.07);
+      border-radius: 10px;
+      margin-bottom: 18px;
+      cursor: pointer;
+    }
+    .all-access-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+    .all-access-row span { font-size: 0.88rem; color: var(--text); }
+    .projects-access-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      letter-spacing: 0.4px;
+    }
+    .projects-checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: var(--bg);
+    }
+    .projects-checklist label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.87rem;
+      color: var(--text);
+      cursor: pointer;
+      padding: 4px 0;
+      letter-spacing: 0;
+      font-weight: 400;
+    }
+    .projects-checklist label:hover { color: var(--accent); }
+    .projects-checklist input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; }
+    .user-modal-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+    .btn-cancel-user {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 10px;
+      padding: 10px 24px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .btn-save-user {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 28px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .btn-save-user:disabled { opacity: 0.6; cursor: not-allowed; }
+
     /* ── Responsive ──────────────────────────────────── */
     @media (max-width: 640px) {
       .header-inner { height: 56px; }
@@ -836,7 +1062,85 @@
       </div>
     </div>
 
+    <!-- ═══ SECTION UTILISATEURS ══════════════════════════ -->
+    <div class="users-section">
+      <div class="users-section-header">
+        <h2>
+          <i class="fa-solid fa-users" style="color:var(--accent);margin-right:10px;"></i>
+          Accès utilisateurs
+        </h2>
+        <button class="btn-new-user" onclick="openUserModal()">
+          <i class="fa-solid fa-user-plus"></i>Ajouter / Modifier
+        </button>
+      </div>
+      <div class="users-table-wrap">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Nom affiché</th>
+              <th>Accès</th>
+              <th>Ajouté le</th>
+              <th style="width:110px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr class="empty-row">
+              <td colspan="5">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div><!-- /main -->
+
+  <!-- ═══ MODAL UTILISATEUR ═════════════════════════════════ -->
+  <div class="user-modal-overlay" id="userModalOverlay">
+    <div class="user-modal">
+      <h3 id="userModalTitle">
+        <i class="fa-solid fa-user-pen" style="color:var(--accent);margin-right:8px;"></i>
+        Accès utilisateur
+      </h3>
+      <input type="hidden" id="uEditEmail" value="" />
+
+      <div class="form-group">
+        <label>Email <span class="required">*</span></label>
+        <input type="email" id="uEmail"
+               placeholder="prenom.nom@orange-sonatel.com"
+               required maxlength="320" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Nom affiché</label>
+        <input type="text" id="uDisplayName"
+               placeholder="Nom complet (optionnel)"
+               maxlength="200" />
+      </div>
+
+      <label class="all-access-row" for="uAllAccess">
+        <input type="checkbox" id="uAllAccess" onchange="toggleAllAccess()" />
+        <span><strong>Accès total</strong> — cet utilisateur peut accéder à toutes les applications</span>
+      </label>
+
+      <div id="projectsAccessBlock">
+        <p class="projects-access-label">Applications autorisées</p>
+        <div class="projects-checklist" id="projectsChecklist">
+          <span style="color:var(--text-secondary);font-size:.85rem">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…
+          </span>
+        </div>
+      </div>
+
+      <div class="user-modal-footer">
+        <button class="btn-cancel-user" onclick="closeUserModal()">Annuler</button>
+        <button class="btn-save-user" id="btnSaveUser" onclick="saveUser()">
+          <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i>Enregistrer
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- ═══ MODAL PROJET ══════════════════════════════════════ -->
   <div class="modal-overlay" id="modalOverlay">
@@ -980,6 +1284,7 @@
       }
       loadProjects();
       loadAdmins();
+      loadUsers();
     });
 
     // ── Chargement des projets ───────────────────────────────
@@ -1258,7 +1563,7 @@
 
     // ── Touche Échap ─────────────────────────────────────────
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { closeModal(); closeConfirm(); }
+      if (e.key === 'Escape') { closeModal(); closeConfirm(); closeUserModal(); }
     });
 
     // ═══════════════════════════════════════════════════════
@@ -1355,6 +1660,153 @@
         showToast('Erreur : ' + err.message, 'error');
       }
     }
+
+    // ══════════════════════════════════════════════════════════
+    // GESTION DES ACCÈS UTILISATEURS
+    // ══════════════════════════════════════════════════════════
+
+    let _users = [];
+    let _allProjectsSimple = []; // [{id, name}, ...]
+
+    // ── Chargement ──────────────────────────────────────────
+    async function loadUsers() {
+      try {
+        const [resU, resP] = await Promise.all([
+          fetch('/admin/api/users',           { headers: { 'X-Requested-With': 'XMLHttpRequest' } }),
+          fetch('/admin/api/projects/all',    { headers: { 'X-Requested-With': 'XMLHttpRequest' } }),
+        ]);
+        if (!resU.ok) throw new Error(`HTTP ${resU.status}`);
+        if (!resP.ok) throw new Error(`HTTP ${resP.status}`);
+        _users             = await resU.json();
+        _allProjectsSimple = await resP.json();
+        renderUsersTable();
+      } catch (e) {
+        document.getElementById('usersBody').innerHTML =
+          `<tr class="empty-row"><td colspan="5"><i class="fa-solid fa-triangle-exclamation"></i> Erreur : ${esc(e.message)}</td></tr>`;
+      }
+    }
+
+    // ── Rendu table ──────────────────────────────────────────
+    function renderUsersTable() {
+      const tbody = document.getElementById('usersBody');
+      if (!_users.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5"><i class="fa-solid fa-user-slash"></i> Aucun utilisateur configuré. Par défaut, tous les utilisateurs authentifiés voient toutes les applications.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = _users.map(u => {
+        const createdAt = u.created_at
+          ? new Date(u.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' })
+          : '—';
+        const accessBadge = u.all_access
+          ? '<span class="access-pill all"><i class="fa-solid fa-unlock-keyhole"></i> Accès total</span>'
+          : `<span class="access-pill partial"><i class="fa-solid fa-list-check"></i> ${(u.project_ids || []).length} app${(u.project_ids||[]).length > 1 ? 's' : ''}</span>`;
+        return `
+        <tr>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.display_name || '—')}</td>
+          <td>${accessBadge}</td>
+          <td>${createdAt}</td>
+          <td>
+            <div class="actions">
+              <button class="btn-edit-user" onclick="openUserModal(${u.id})" title="Modifier"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn-del-user"  onclick="deleteUser(${u.id}, '${esc(u.email)}')" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Ouvrir le modal ──────────────────────────────────────
+    function openUserModal(userId) {
+      const u = userId ? _users.find(x => x.id === userId) : null;
+      document.getElementById('uEditEmail').value     = u ? u.email : '';
+      document.getElementById('uEmail').value         = u ? u.email : '';
+      document.getElementById('uEmail').readOnly      = !!u;
+      document.getElementById('uDisplayName').value   = u ? (u.display_name || '') : '';
+      document.getElementById('uAllAccess').checked   = u ? !!u.all_access : false;
+      document.getElementById('userModalTitle').innerHTML =
+        `<i class="fa-solid fa-user-pen" style="color:var(--accent);margin-right:8px;"></i>${u ? 'Modifier les accès' : 'Ajouter un utilisateur'}`;
+      renderProjectsChecklist(u ? (u.project_ids || []) : []);
+      toggleAllAccess();
+      document.getElementById('userModalOverlay').classList.add('open');
+    }
+
+    function closeUserModal() {
+      document.getElementById('userModalOverlay').classList.remove('open');
+    }
+
+    function toggleAllAccess() {
+      const allAccess = document.getElementById('uAllAccess').checked;
+      document.getElementById('projectsAccessBlock').style.opacity  = allAccess ? '0.35' : '1';
+      document.getElementById('projectsAccessBlock').style.pointerEvents = allAccess ? 'none' : 'auto';
+    }
+
+    function renderProjectsChecklist(selectedIds) {
+      const container = document.getElementById('projectsChecklist');
+      if (!_allProjectsSimple.length) {
+        container.innerHTML = '<span style="color:var(--text-secondary);font-size:.85rem">Aucun projet disponible.</span>';
+        return;
+      }
+      container.innerHTML = _allProjectsSimple.map(p =>
+        `<label>
+          <input type="checkbox" value="${p.id}" ${selectedIds.includes(p.id) ? 'checked' : ''} />
+          ${esc(p.name)}
+        </label>`
+      ).join('');
+    }
+
+    // ── Sauvegarder ──────────────────────────────────────────
+    async function saveUser() {
+      const email       = document.getElementById('uEmail').value.trim();
+      const displayName = document.getElementById('uDisplayName').value.trim();
+      const allAccess   = document.getElementById('uAllAccess').checked;
+      if (!email) { showToast('Email obligatoire.', 'error'); return; }
+
+      const projectIds = allAccess ? [] : Array.from(
+        document.querySelectorAll('#projectsChecklist input[type="checkbox"]:checked')
+      ).map(cb => parseInt(cb.value));
+
+      const btn = document.getElementById('btnSaveUser');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/admin/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ email, display_name: displayName, all_access: allAccess, project_ids: projectIds }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        closeUserModal();
+        await loadUsers();
+        showToast('Accès utilisateur enregistré.', 'success');
+      } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Supprimer ────────────────────────────────────────────
+    async function deleteUser(id, email) {
+      if (!confirm(`Supprimer la configuration d'accès de ${email} ?`)) return;
+      try {
+        const res = await fetch(`/admin/api/users/${id}`, {
+          method: 'DELETE',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        await loadUsers();
+        showToast(`Accès de ${esc(email)} supprimé.`, 'success');
+      } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+      }
+    }
+
+    // Fermer le modal utilisateur en cliquant en dehors
+    document.getElementById('userModalOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeUserModal();
+    });
   </script>
 
 </body>

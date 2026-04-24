@@ -88,3 +88,28 @@ CREATE TABLE IF NOT EXISTS admins (
 INSERT INTO admins (email, display_name, created_by)
 VALUES ('simonpierre.diouf@orange-sonatel.com', 'Simon Pierre Diouf', 'system')
 ON CONFLICT (email) DO NOTHING;
+
+-- ─────────────────────────────────────────────────────────────
+-- Table des utilisateurs du portail
+-- Contrôle d'accès par application pour chaque compte AD
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS portal_users (
+    id           SERIAL       PRIMARY KEY,
+    email        VARCHAR(320) NOT NULL UNIQUE,
+    display_name VARCHAR(200) NOT NULL DEFAULT '',
+    all_access   BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_by   VARCHAR(320) NOT NULL DEFAULT 'system'
+);
+
+-- Liaison utilisateur <-> projets autorisés
+CREATE TABLE IF NOT EXISTS user_project_access (
+    user_id    INT NOT NULL REFERENCES portal_users(id) ON DELETE CASCADE,
+    project_id INT NOT NULL REFERENCES projects(id)     ON DELETE CASCADE,
+    PRIMARY KEY (user_id, project_id)
+);
+
+-- Admin par défaut : accès total à toutes les applications
+INSERT INTO portal_users (email, display_name, all_access, created_by)
+VALUES ('simonpierre.diouf@orange-sonatel.com', 'Simon Pierre Diouf', TRUE, 'system')
+ON CONFLICT (email) DO NOTHING;
