@@ -545,6 +545,52 @@
     }
     footer strong { color: var(--accent); }
 
+    /* ─── NO APPS PLACEHOLDER ────────────────────────────── */
+    .no-apps {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--text-secondary);
+    }
+    .no-apps i {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 16px;
+      opacity: 0.35;
+    }
+    .no-apps p { font-size: 0.95rem; line-height: 1.7; }
+    .no-apps a { color: var(--accent); text-decoration: underline; }
+    .no-apps code {
+      background: rgba(0,179,89,0.1);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 0.85em;
+    }
+
+    /* ─── BTN ADMIN ──────────────────────────────────────── */
+    .btn-admin {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 13px 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s;
+      text-align: left;
+    }
+    .btn-admin:hover {
+      background: rgba(0,179,89,0.1);
+      color: var(--accent);
+    }
+    .btn-admin i { font-size: 0.85rem; width: 16px; text-align: center; }
+
     /* ─── RESPONSIVE ─────────────────────────────────────── */
     @media (max-width: 640px) {
       .header-inner { height: 60px; }
@@ -577,6 +623,11 @@
                 <div class="p-email">{{USER_EMAIL}}</div>
               </div>
             </div>
+            <div class="dropdown-divider"></div>
+            <a class="btn-admin" href="/admin">
+              <i class="fa-solid fa-gear"></i>
+              Espace Admin
+            </a>
             <div class="dropdown-divider"></div>
             <a class="btn-logout" href="/logout">
               <i class="fa-solid fa-right-from-bracket"></i>
@@ -615,149 +666,7 @@
 
   <div class="cards-grid" id="cardsGrid">
 
-    <!-- Card 1 -->
-    <a class="card" href="{{APP_CHATBOT_URL}}" target="_blank" data-name="chatbot assistant">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-green">
-          <i class="fa-solid fa-comments"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>Sonatel Databot</h3>
-        <p>Assistant conversationnel intelligent basé sur les LLM pour répondre aux questions internes.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">IA</span> 
-        <span class="card-status"><span class="status-dot"></span> En ligne</span>
-      </div>
-    </a>
-
-    <!-- Card 2 -->
-    <!-- <a class="card" href="{{APP_COLOMBO_URL}}" target="_blank" data-name="analyse documents rag">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-teal">
-          <i class="fa-solid fa-file-magnifying-glass"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>Analyse de Documents</h3>
-        <p>Extraction et analyse automatique d'informations depuis des documents PDF, Word et Excel.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">RAG</span>
-        <span class="card-status"><span class="status-dot"></span> En ligne</span>
-      </div>
-    </a> -->
-
-    <!-- Card 3 -->
-    <a class="card" href="{{APP_COLOMBO_URL}}" target="_blank" data-name="tableau de bord analytics">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-lime">
-          <i class="fa-solid fa-chart-line"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>Colombo Analytics</h3>
-        <p>Visualisation en temps réel des indicateurs de performance et de l'activité réseau Sonatel.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">IA</span><span class="card-tag">SCRAPING</span>
-        <span class="card-status"><span class="status-dot"></span> En ligne</span>
-      </div>
-    </a>
-
-    <!-- Card 4 -->
-    <a class="card" href="{{APP_CV_ANALYTICS_URL}}" target="_blank" data-name="cv analysers compétences expérience">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-amber">
-          <i class="fa-solid fa-shield-halved"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>CV Analysers</h3>
-        <p>Système de détection et d'analyse des CV pour identifier les compétences et les expériences pertinentes.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">NLP</span><span class="card-tag">IA</span>
-        <span class="card-status"><span class="status-dot"></span> En ligne</span>
-      </div>
-    </a>
-
-    <!-- Card 5 -->
-    <!-- <a class="card" href="{{APP_OCR_URL}}" target="_blank" data-name="ocr reconnaissance texte image">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-cyan">
-          <i class="fa-solid fa-eye"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>OCR & Vision IA</h3>
-        <p>Reconnaissance optique de caractères et analyse d'images par vision artificielle.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">Vision</span>
-        <span class="card-status"><span class="status-dot"></span> En ligne</span>
-      </div>
-    </a> -->
-
-    <!-- Card 6 -->
-    <!-- <a class="card" href="{{APP_CHURN_URL}}" target="_blank" data-name="prédiction churn client">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-blue">
-          <i class="fa-solid fa-users-gear"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>Prédiction Churn</h3>
-        <p>Anticipation de l'attrition client grâce aux modèles prédictifs et aux données comportementales.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">Prédictif</span>
-        <span class="card-status"><span class="status-dot"></span> En ligne</span>
-      </div> -->
-    </a>
-
-    <!-- Card 7 -->
-    <!-- <a class="card" href="{{APP_RAPPORTS_URL}}" target="_blank" data-name="génération rapport automatique">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-purple">
-          <i class="fa-solid fa-wand-magic-sparkles"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>Génération de Rapports</h3>
-        <p>Création automatique de rapports structurés et de synthèses via des modèles génératifs.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">GenAI</span>
-        <span class="card-status"><span class="status-dot offline"></span> Maintenance</span>
-      </div>
-    </a> -->
-
-    <!-- Card 8 -->
-    <!-- <a class="card" href="{{APP_MAINTENANCE_URL}}" target="_blank" data-name="réseau prédiction maintenance">
-      <div class="card-header">
-        <div class="card-icon-wrap icon-rose">
-          <i class="fa-solid fa-network-wired"></i>
-        </div>
-        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
-      </div>
-      <div class="card-body">
-        <h3>Maintenance Prédictive</h3>
-        <p>Surveillance et prédiction des pannes réseau pour une intervention proactive sur l'infrastructure.</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-tag">IoT</span>
-        <span class="card-status"><span class="status-dot"></span> En ligne</span>
-      </div>
-    </a> -->
+    {{CARDS_HTML}}
 
   </div>
 

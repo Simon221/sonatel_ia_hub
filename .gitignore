@@ -27,3 +27,7 @@ desktop.ini
 
 # ── Logs ──────────────────────────────────────────────────────
 *.log
+
+# ── Docker ────────────────────────────────────────────────────
+# Ne pas versionner les données persistantes du volume local
+postgres_data/

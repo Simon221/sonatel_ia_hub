@@ -1,0 +1,14 @@
+# Démarrer
+docker compose up -d
+
+# Arrêter (données conservées)
+docker compose down
+
+# Arrêter + supprimer les données (reset total)
+docker compose down -v
+
+# Voir les logs
+docker compose logs -f postgres
+
+# Accéder à la base directement
+docker exec -it sonatel_ia_hub_db psql -U sonatel -d sonatel_ia_hub

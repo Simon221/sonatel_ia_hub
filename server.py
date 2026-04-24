@@ -14,6 +14,9 @@ import http.server
 import socketserver
 import os
 import sys
+import re
+import html
+import json
 import webbrowser
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -51,17 +54,31 @@ except Exception as _auth_err:
     _auth = None
     AUTH_AVAILABLE = False
     print(f"  [auth] Module non charge: {_auth_err}")
+
+# ── Chargement du module db ───────────────────────────────────
+def _load_db():
+    spec = importlib.util.spec_from_file_location(
+        "db", BASE_DIR / "services" / "db.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+try:
+    _db = _load_db()
+    DB_AVAILABLE = _db.DB_AVAILABLE
+except Exception as _db_err:
+    _db = None
+    DB_AVAILABLE = False
+    print(f"  [db] Module non charge: {_db_err}")
+
 HOST              = os.environ.get("SERVER_HOST",        "localhost")
 PORT              = int(os.environ.get("SERVER_PORT",    "8000"))
 AUTO_OPEN_BROWSER = os.environ.get("AUTO_OPEN_BROWSER", "true").lower() == "true"
-AUTO_OPEN_BROWSER = os.environ.get("AUTO_OPEN_BROWSER", "true").lower() == "true"
 
-# URLs injectees dans le template HTML
-APP_URLS = {
-    "APP_CHATBOT_URL":     os.environ.get("APP_CHATBOT_URL",     "http://localhost:8501"),
-    "APP_COLOMBO_URL":  os.environ.get("APP_COLOMBO_URL",  "http://localhost:8502"),
-    "APP_CV_ANALYTICS_URL":  os.environ.get("APP_CV_ANALYTICS_URL",  "http://localhost:8503"),
-}
+# Restriction d'acces a l'espace admin
+ADMIN_GROUPS = os.environ.get("ADMIN_GROUPS", "").strip()
+ADMIN_USERS  = os.environ.get("ADMIN_USERS",  "").strip()
 
 
 # ── Handler HTTP ──────────────────────────────────────────────
@@ -92,8 +109,38 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_logout()
         elif path in ("/", "/index.html"):
             self._guard_and_serve_index()
+        elif path == "/admin":
+            self._handle_admin_page()
+        elif path == "/admin/api/projects":
+            self._handle_admin_api_list()
         else:
             super().do_GET()
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        path   = parsed.path
+        if path == "/admin/api/projects":
+            self._handle_admin_api_create()
+        else:
+            self.send_error(404)
+
+    def do_PUT(self) -> None:
+        parsed = urlparse(self.path)
+        path   = parsed.path
+        m = re.match(r"^/admin/api/projects/(\d+)$", path)
+        if m:
+            self._handle_admin_api_update(int(m.group(1)))
+        else:
+            self.send_error(404)
+
+    def do_DELETE(self) -> None:
+        parsed = urlparse(self.path)
+        path   = parsed.path
+        m = re.match(r"^/admin/api/projects/(\d+)$", path)
+        if m:
+            self._handle_admin_api_delete(int(m.group(1)))
+        else:
+            self.send_error(404)
 
     # -- /login : affiche la page de connexion -----------
     def _handle_login(self) -> None:
@@ -200,8 +247,8 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(404, "index.html introuvable")
             return
 
-        for key, value in APP_URLS.items():
-            content = content.replace("{{" + key + "}}", value)
+        # Injection des cartes dynamiques depuis la base de données
+        content = content.replace("{{CARDS_HTML}}", self._build_cards_html())
 
         # Injection des infos utilisateur
         if user:
@@ -210,10 +257,204 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         else:
             user_name  = "Utilisateur"
             user_email = ""
-        content = content.replace("{{USER_NAME}}",  user_name)
-        content = content.replace("{{USER_EMAIL}}", user_email)
+        content = content.replace("{{USER_NAME}}",  html.escape(user_name))
+        content = content.replace("{{USER_EMAIL}}", html.escape(user_email))
 
         self._send_html(content)
+
+    # -- Génération des cartes HTML depuis la DB ----------
+    @staticmethod
+    def _build_cards_html() -> str:
+        if _db is None or not DB_AVAILABLE:
+            return (
+                '<div class="no-apps">'
+                '<i class="fa-solid fa-database"></i>'
+                '<p>Base de données non configurée.<br/>'
+                '<a href="/admin">Accédez à l\'espace admin</a> pour configurer la connexion PostgreSQL, '
+                'ou renseignez <code>DATABASE_URL</code> dans votre <code>.env</code>.</p>'
+                '</div>'
+            )
+        projects = _db.get_active_projects()
+        if not projects:
+            return (
+                '<div class="no-apps">'
+                '<i class="fa-solid fa-inbox"></i>'
+                '<p>Aucune application publiée.<br/>'
+                '<a href="/admin">Ouvrez l\'espace admin</a> pour ajouter vos premiers projets.</p>'
+                '</div>'
+            )
+
+        STATUS_LABELS = {
+            "online":      ("", "En ligne"),
+            "offline":     (" offline", "Hors ligne"),
+            "maintenance": (" offline", "Maintenance"),
+        }
+        parts = []
+        for p in projects:
+            s            = p.get("status", "online")
+            dot_cls, lbl = STATUS_LABELS.get(s, ("", "En ligne"))
+            icon_cls     = html.escape(p.get("icon_class") or "fa-solid fa-robot")
+            icon_color   = html.escape(p.get("icon_color") or "icon-green")
+            name         = html.escape(p.get("name") or "")
+            desc         = html.escape(p.get("description") or "")
+            purl         = html.escape(p.get("url") or "#")
+            search_data  = html.escape(
+                (p.get("name") or "").lower() + " " + (p.get("description") or "").lower()
+            )
+            tags_html = "".join(
+                f'<span class="card-tag">{html.escape(t.strip())}</span>'
+                for t in (p.get("tags") or "").split(",")
+                if t.strip()
+            )
+            parts.append(
+                f'<a class="card" href="{purl}" target="_blank" data-name="{search_data}">'
+                f'<div class="card-header">'
+                f'<div class="card-icon-wrap {icon_color}"><i class="{icon_cls}"></i></div>'
+                f'<i class="fa-solid fa-arrow-up-right card-arrow"></i>'
+                f'</div>'
+                f'<div class="card-body"><h3>{name}</h3><p>{desc}</p></div>'
+                f'<div class="card-footer">'
+                f'{tags_html}'
+                f'<span class="card-status">'
+                f'<span class="status-dot{dot_cls}"></span> {lbl}'
+                f'</span></div></a>'
+            )
+        return "\n".join(parts)
+
+    # -- Espace admin : page HTML -------------------------
+    def _handle_admin_page(self) -> None:
+        is_adm, user = self._check_admin()
+        if not is_adm:
+            self.send_response(403)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(
+                b"<h2>403 Acc\xc3\xa8s refus\xc3\xa9</h2>"
+                b"<p>Vous n&#39;avez pas les droits pour acc\xc3\xa9der \xc3\xa0 l&#39;espace admin.</p>"
+                b'<a href="/">Retour au portail</a>'
+            )
+            return
+        tpl_path = BASE_DIR / "templates" / "admin.html"
+        try:
+            content = tpl_path.read_text(encoding="utf-8")
+        except OSError:
+            self.send_error(500, "admin.html introuvable")
+            return
+        user_name = ""
+        if user:
+            user_name = user.get("name") or user.get("preferred_username") or "Admin"
+        content = content.replace("{{USER_NAME}}",  html.escape(user_name) or "Admin")
+        content = content.replace("{{DB_STATUS}}", "ok" if DB_AVAILABLE else "disabled")
+        self._send_html(content)
+
+    # -- Admin API : liste tous les projets ---------------
+    def _handle_admin_api_list(self) -> None:
+        is_adm, _ = self._check_admin()
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        projects = _db.get_all_projects() if _db else []
+        self._send_json(projects)
+
+    # -- Admin API : créer un projet ----------------------
+    def _handle_admin_api_create(self) -> None:
+        is_adm, _ = self._check_admin()
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        data = self._read_json_body()
+        if data is None:
+            self._send_json({"error": "Corps JSON invalide"}, 400)
+            return
+        if not data.get("name") or not data.get("url"):
+            self._send_json({"error": "Les champs 'name' et 'url' sont obligatoires"}, 400)
+            return
+        if not self._validate_status(data.get("status", "online")):
+            self._send_json({"error": "Statut invalide (online/offline/maintenance)"}, 400)
+            return
+        result = _db.create_project(data) if _db else None
+        if result is None:
+            self._send_json({"error": "Erreur lors de la création (base non configurée ?)"}, 500)
+            return
+        self._send_json(result, 201)
+
+    # -- Admin API : mettre à jour un projet --------------
+    def _handle_admin_api_update(self, project_id: int) -> None:
+        is_adm, _ = self._check_admin()
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        data = self._read_json_body()
+        if data is None:
+            self._send_json({"error": "Corps JSON invalide"}, 400)
+            return
+        if not data.get("name") or not data.get("url"):
+            self._send_json({"error": "Les champs 'name' et 'url' sont obligatoires"}, 400)
+            return
+        if not self._validate_status(data.get("status", "online")):
+            self._send_json({"error": "Statut invalide (online/offline/maintenance)"}, 400)
+            return
+        result = _db.update_project(project_id, data) if _db else None
+        if result is None:
+            self._send_json({"error": "Projet introuvable ou erreur base de données"}, 404)
+            return
+        self._send_json(result)
+
+    # -- Admin API : supprimer un projet ------------------
+    def _handle_admin_api_delete(self, project_id: int) -> None:
+        is_adm, _ = self._check_admin()
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        deleted = _db.delete_project(project_id) if _db else False
+        if not deleted:
+            self._send_json({"error": "Projet introuvable"}, 404)
+            return
+        self._send_json({"ok": True})
+
+    # -- Helpers admin ------------------------------------
+    def _check_admin(self) -> tuple:
+        """Retourne (is_admin, user_dict|None)."""
+        if not AUTH_AVAILABLE:
+            return True, None
+        cookie = self.headers.get("Cookie", "")
+        ok, user = _auth.is_authenticated(cookie)
+        if not ok:
+            return False, None
+        # Pas de restriction configurée → tout utilisateur authentifié est admin
+        if not ADMIN_GROUPS and not ADMIN_USERS:
+            return True, user
+        user_groups  = set(user.get("groups", []))
+        username     = user.get("preferred_username", "")
+        allowed_grps = {g.strip() for g in ADMIN_GROUPS.split(",") if g.strip()}
+        allowed_usrs = {u.strip() for u in ADMIN_USERS.split(",") if u.strip()}
+        if allowed_grps & user_groups or username in allowed_usrs:
+            return True, user
+        return False, None
+
+    def _read_json_body(self) -> dict | None:
+        """Lit et décode le corps JSON de la requête."""
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if length == 0:
+                return {}
+            raw = self.rfile.read(length)
+            return json.loads(raw)
+        except Exception:
+            return None
+
+    def _send_json(self, data, status: int = 200) -> None:
+        """Sérialise `data` en JSON et envoie la réponse."""
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type",   "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    @staticmethod
+    def _validate_status(status: str) -> bool:
+        return status in ("online", "offline", "maintenance")
 
     # -- Rendu de la page de connexion --------------------
     def _serve_login_page(self, error_msg: str = "") -> None:
@@ -265,6 +506,10 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 # ── Point d'entree ────────────────────────────────────────────
 def main() -> None:
     os.chdir(BASE_DIR)
+
+    # Initialisation de la base de données (crée la table si besoin)
+    if _db is not None:
+        _db.init_db()
 
     with socketserver.TCPServer((HOST, PORT), SonatelHandler) as httpd:
         httpd.allow_reuse_address = True

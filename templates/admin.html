@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – Sonatel IA Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    /* ── Design tokens (même charte que le portail) ──── */
+    :root {
+      --g1: #004d26;
+      --g2: #007a3d;
+      --g3: #00b359;
+      --g4: #33cc77;
+      --bg-dark:  #011a0d;
+      --bg-card:  rgba(255,255,255,0.05);
+      --border:   rgba(0,179,89,0.25);
+      --text-primary:   #ffffff;
+      --text-secondary: rgba(255,255,255,0.65);
+      --accent:   #00b359;
+      --danger:   #e05060;
+      --danger-bg: rgba(220,60,80,0.12);
+      --radius: 14px;
+      --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%);
+      padding: 0 2rem;
+      box-shadow: 0 4px 30px rgba(0,179,89,0.3);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 66px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .logo-text { font-size: 1.2rem; font-weight: 800; color: #fff; }
+    .logo-text span { font-weight: 300; opacity: 0.85; }
+    .logo-badge {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .header-right {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .btn-portal {
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      text-decoration: none;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+    .btn-portal:hover { background: rgba(255,255,255,0.22); }
+    .user-info {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.85);
+    }
+    .btn-logout-sm {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(220,60,80,0.15);
+      border: 1px solid rgba(220,60,80,0.3);
+      color: #ff7070;
+      text-decoration: none;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      transition: var(--transition);
+      cursor: pointer;
+    }
+    .btn-logout-sm:hover { background: rgba(220,60,80,0.25); }
+
+    /* ── Bandeau DB désactivé ────────────────────────── */
+    .db-banner {
+      background: rgba(240,170,30,0.12);
+      border-bottom: 1px solid rgba(240,170,30,0.25);
+      color: #f0c040;
+      text-align: center;
+      padding: 10px 2rem;
+      font-size: 0.85rem;
+      display: none;
+    }
+    .db-banner.visible { display: block; }
+    .db-banner a { color: #f0c040; text-decoration: underline; }
+
+    /* ── Layout principal ────────────────────────────── */
+    .main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 36px 2rem 80px;
+    }
+
+    /* ── Stats ───────────────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      backdrop-filter: blur(12px);
+    }
+    .stat-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stat-value.orange { color: #f0a81e; }
+    .stat-value.red    { color: var(--danger); }
+    .stat-value.grey   { color: #888; }
+
+    /* ── Toolbar ─────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .toolbar h2 span { color: var(--accent); }
+    .btn-new {
+      display: flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--g2), var(--g3));
+      border: none;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-new:hover { opacity: 0.88; transform: scale(0.98); }
+    .btn-new:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Table ───────────────────────────────────────── */
+    .table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead {
+      background: rgba(0,179,89,0.06);
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      padding: 13px 16px;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    td {
+      padding: 14px 16px;
+      font-size: 0.875rem;
+      border-bottom: 1px solid rgba(0,179,89,0.08);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(0,179,89,0.04); }
+
+    .td-icon {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .td-icon-preview {
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .td-name { font-weight: 600; }
+    .td-url {
+      color: var(--accent);
+      font-size: 0.8rem;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .td-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(0,179,89,0.12);
+      border: 1px solid rgba(0,179,89,0.2);
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.75rem; font-weight: 600; padding: 3px 10px;
+      border-radius: 6px;
+    }
+    .status-badge.online    { background: rgba(0,179,89,0.15); color: #00cc66; }
+    .status-badge.offline   { background: rgba(136,136,136,0.15); color: #aaa; }
+    .status-badge.maintenance { background: rgba(240,170,30,0.15); color: #f0a81e; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .status-badge.online .status-dot    { background: #00cc66; }
+    .status-badge.offline .status-dot   { background: #888; }
+    .status-badge.maintenance .status-dot { background: #f0a81e; }
+
+    .active-toggle {
+      position: relative;
+      display: inline-block;
+      width: 38px; height: 22px;
+      cursor: pointer;
+    }
+    .active-toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: #333;
+      border-radius: 22px;
+      transition: var(--transition);
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 3px; bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: var(--transition);
+    }
+    .active-toggle input:checked + .toggle-slider { background: var(--g3); }
+    .active-toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+    .order-cell { color: var(--text-secondary); font-size: 0.8rem; text-align: center; }
+
+    .actions { display: flex; gap: 8px; }
+    .btn-edit, .btn-delete {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 1px solid;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: var(--transition);
+      background: transparent;
+      font-family: inherit;
+    }
+    .btn-edit {
+      border-color: rgba(0,179,89,0.3);
+      color: var(--accent);
+    }
+    .btn-edit:hover { background: rgba(0,179,89,0.12); border-color: var(--accent); }
+    .btn-delete {
+      border-color: rgba(220,60,80,0.3);
+      color: var(--danger);
+    }
+    .btn-delete:hover { background: var(--danger-bg); border-color: var(--danger); }
+
+    .empty-row { text-align: center; color: var(--text-secondary); }
+    .empty-row td { padding: 48px 16px !important; }
+    .empty-row i { font-size: 2rem; display: block; margin-bottom: 12px; opacity: 0.4; }
+
+    /* ── Modal overlay ───────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      z-index: 999;
+      overflow-y: auto;
+      padding: 40px 16px;
+    }
+    .modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+
+    .modal {
+      background: #0a1f10;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+      animation: modalIn 0.2s cubic-bezier(0.4,0,0.2,1);
+      position: relative;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(-20px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .modal-header h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+    .modal-close {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text-secondary);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition);
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+    /* ── Formulaire ──────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 7px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-secondary);
+    }
+    label .required { color: var(--danger); margin-left: 2px; }
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    select,
+    textarea {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(0,179,89,0.2);
+      border-radius: 9px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 10px 13px;
+      transition: var(--transition);
+      outline: none;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      background: rgba(0,179,89,0.06);
+      box-shadow: 0 0 0 3px rgba(0,179,89,0.1);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    select option { background: #0a2e18; color: #fff; }
+
+    .icon-preview-row {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .icon-preview-box {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      transition: var(--transition);
+    }
+    .icon-preview-row input { flex: 1; }
+
+    .form-check {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0;
+    }
+    .form-check input[type="checkbox"] {
+      width: 18px; height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .form-check label {
+      font-size: 0.875rem;
+      text-transform: none;
+      letter-spacing: normal;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .form-hint {
+      font-size: 0.73rem;
+      color: var(--text-secondary);
+      margin-top: -4px;
+    }
+
+    .modal-actions {
+      display: flex; justify-content: flex-end; gap: 12px;
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text-secondary);
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-cancel:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+    .btn-submit {
+      background: linear-gradient(135deg, var(--g2), var(--g3));
+      border: none;
+      color: #fff;
+      padding: 10px 28px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-submit:hover { opacity: 0.88; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Toast ───────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #0a2e18;
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      display: flex; align-items: center; gap: 10px;
+      z-index: 9999;
+      transform: translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      max-width: 380px;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .toast.error { border-color: rgba(220,60,80,0.5); }
+    .toast i.success { color: var(--accent); }
+    .toast i.error   { color: var(--danger); }
+
+    /* ── Confirm dialog ──────────────────────────────── */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(4px);
+      z-index: 1100;
+      align-items: center;
+      justify-content: center;
+    }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box {
+      background: #0a1f10;
+      border: 1px solid rgba(220,60,80,0.3);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    }
+    .confirm-icon { font-size: 2.5rem; color: var(--danger); margin-bottom: 16px; }
+    .confirm-box h4 { font-size: 1.1rem; margin-bottom: 10px; }
+    .confirm-box p  { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px; }
+    .confirm-actions { display: flex; justify-content: center; gap: 12px; }
+    .btn-confirm-cancel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text-secondary);
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .btn-confirm-delete {
+      background: var(--danger);
+      border: none;
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    /* ── Icônes couleurs ─────────────────────────────── */
+    .icon-green  { background: rgba(0,179,89,0.18);  color: #00cc66; }
+    .icon-teal   { background: rgba(0,150,120,0.18); color: #00c8a0; }
+    .icon-lime   { background: rgba(100,200,50,0.18);color: #88dd44; }
+    .icon-cyan   { background: rgba(0,180,200,0.18); color: #00c8d0; }
+    .icon-amber  { background: rgba(240,170,30,0.15);color: #f0a81e; }
+    .icon-purple { background: rgba(130,80,220,0.15);color: #a066e0; }
+    .icon-blue   { background: rgba(40,130,230,0.15);color: #3a9cf0; }
+    .icon-rose   { background: rgba(220,60,100,0.15);color: #e05080; }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media (max-width: 640px) {
+      .header-inner { height: 56px; }
+      .main { padding: 24px 1rem 60px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .modal { padding: 24px 20px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      th:nth-child(3), td:nth-child(3),
+      th:nth-child(7), td:nth-child(7) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════ -->
+  <header>
+    <div class="header-inner">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <a class="logo" href="/">
+          <div class="logo-icon">🌿</div>
+          <div class="logo-text">Sonatel <span>IA Hub</span></div>
+        </a>
+        <span class="logo-badge">Admin</span>
+      </div>
+      <div class="header-right">
+        <a class="btn-portal" href="/" title="Retour au portail">
+          <i class="fa-solid fa-arrow-left"></i> Portail
+        </a>
+        <span class="user-info"><i class="fa-solid fa-user" style="margin-right:6px;opacity:.7"></i>{{USER_NAME}}</span>
+        <a class="btn-logout-sm" href="/logout">
+          <i class="fa-solid fa-right-from-bracket"></i> Déconnexion
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ BANDEAU DB NON CONFIGURÉE ═════════════════════════ -->
+  <div class="db-banner" id="dbBanner">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    Base de données non configurée — ajoutez <code>DATABASE_URL</code> dans votre <code>.env</code>.
+    Les modifications ne seront pas persistées.
+    <a href="https://www.postgresql.org/download/" target="_blank" rel="noreferrer">En savoir plus →</a>
+  </div>
+
+  <!-- ═══ CONTENU PRINCIPAL ════════════════════════════════ -->
+  <div class="main">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total projets</div>
+        <div class="stat-value" id="statTotal">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">En ligne</div>
+        <div class="stat-value" id="statOnline">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Maintenance</div>
+        <div class="stat-value orange" id="statMaintenance">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Hors ligne</div>
+        <div class="stat-value red" id="statOffline">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Inactifs</div>
+        <div class="stat-value grey" id="statInactive">—</div>
+      </div>
+    </div>
+
+    <!-- Barre d'outils -->
+    <div class="toolbar">
+      <h2>Projets & <span>Applications</span></h2>
+      <button class="btn-new" id="btnNew" onclick="openModal()">
+        <i class="fa-solid fa-plus"></i> Nouveau projet
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Application</th>
+            <th>URL</th>
+            <th>Tags</th>
+            <th>Statut</th>
+            <th>Ordre</th>
+            <th>Actif</th>
+            <th style="width:90px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="projectsBody">
+          <tr class="empty-row">
+            <td colspan="7">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              Chargement…
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- ═══ MODAL PROJET ══════════════════════════════════════ -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle"><i class="fa-solid fa-plus-circle" style="color:var(--accent);margin-right:8px;"></i>Nouveau projet</h3>
+        <button class="modal-close" onclick="closeModal()" title="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="projectForm" onsubmit="submitForm(event)" novalidate>
+        <input type="hidden" id="editId" value="" />
+        <div class="form-grid">
+
+          <!-- Nom -->
+          <div class="form-group full">
+            <label>Nom de l'application <span class="required">*</span></label>
+            <input type="text" id="fName" placeholder="Ex: Sonatel Databot" required maxlength="200" />
+          </div>
+
+          <!-- Description -->
+          <div class="form-group full">
+            <label>Description <span class="required">*</span></label>
+            <textarea id="fDesc" placeholder="Courte description affichée sur la carte…" required maxlength="500"></textarea>
+          </div>
+
+          <!-- URL -->
+          <div class="form-group full">
+            <label>URL de l'application <span class="required">*</span></label>
+            <input type="url" id="fUrl" placeholder="https://app.sonatel.sn ou http://localhost:8501" required maxlength="500" />
+          </div>
+
+          <!-- Icône -->
+          <div class="form-group full">
+            <label>Icône Font Awesome <span class="required">*</span></label>
+            <div class="icon-preview-row">
+              <div class="icon-preview-box icon-green" id="iconPreviewBox">
+                <i id="iconPreviewEl" class="fa-solid fa-robot"></i>
+              </div>
+              <input type="text" id="fIcon" value="fa-solid fa-robot"
+                placeholder="fa-solid fa-robot"
+                oninput="updateIconPreview()"
+                maxlength="100" />
+            </div>
+            <p class="form-hint">
+              Choisissez sur <a href="https://fontawesome.com/icons" target="_blank" rel="noreferrer" style="color:var(--accent);">fontawesome.com/icons</a>
+              · Ex: <code>fa-solid fa-comments</code>, <code>fa-solid fa-chart-line</code>, <code>fa-solid fa-brain</code>
+            </p>
+          </div>
+
+          <!-- Couleur icône -->
+          <div class="form-group">
+            <label>Couleur de l'icône</label>
+            <select id="fColor" onchange="updateIconPreview()">
+              <option value="icon-green">Vert</option>
+              <option value="icon-teal">Teal</option>
+              <option value="icon-lime">Lime</option>
+              <option value="icon-cyan">Cyan</option>
+              <option value="icon-amber">Amber</option>
+              <option value="icon-purple">Violet</option>
+              <option value="icon-blue">Bleu</option>
+              <option value="icon-rose">Rose</option>
+            </select>
+          </div>
+
+          <!-- Tags -->
+          <div class="form-group">
+            <label>Tags</label>
+            <input type="text" id="fTags" placeholder="IA, NLP, GenAI" maxlength="200" />
+            <p class="form-hint">Séparés par des virgules</p>
+          </div>
+
+          <!-- Statut -->
+          <div class="form-group">
+            <label>Statut</label>
+            <select id="fStatus">
+              <option value="online">En ligne</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="offline">Hors ligne</option>
+            </select>
+          </div>
+
+          <!-- Ordre -->
+          <div class="form-group">
+            <label>Ordre d'affichage</label>
+            <input type="number" id="fOrder" value="0" min="0" max="999" />
+            <p class="form-hint">Valeur faible = affiché en premier</p>
+          </div>
+
+          <!-- Actif -->
+          <div class="form-group full">
+            <div class="form-check">
+              <input type="checkbox" id="fActive" checked />
+              <label for="fActive">Afficher sur le portail (projet actif)</label>
+            </div>
+          </div>
+
+        </div><!-- /form-grid -->
+
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" onclick="closeModal()">Annuler</button>
+          <button type="submit" class="btn-submit" id="btnSubmit">
+            <i class="fa-solid fa-floppy-disk" style="margin-right:7px;"></i>Enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ CONFIRMATION SUPPRESSION ═════════════════════════ -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <div class="confirm-icon"><i class="fa-solid fa-trash"></i></div>
+      <h4>Supprimer ce projet ?</h4>
+      <p id="confirmText">Cette action est irréversible. Le projet sera définitivement supprimé de la base de données.</p>
+      <div class="confirm-actions">
+        <button class="btn-confirm-cancel" onclick="closeConfirm()">Annuler</button>
+        <button class="btn-confirm-delete" id="btnConfirmDelete" onclick="confirmDelete()">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TOAST ═════════════════════════════════════════════ -->
+  <div class="toast" id="toast">
+    <i id="toastIcon"></i>
+    <span id="toastMsg"></span>
+  </div>
+
+  <!-- ═══ SCRIPT ════════════════════════════════════════════ -->
+  <script>
+    // ── État ────────────────────────────────────────────────
+    let _projects = [];
+    let _deleteId = null;
+    const DB_STATUS = "{{DB_STATUS}}";
+
+    // ── Init ────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      if (DB_STATUS !== 'ok') {
+        document.getElementById('dbBanner').classList.add('visible');
+        document.getElementById('btnNew').disabled = true;
+      }
+      loadProjects();
+    });
+
+    // ── Chargement des projets ───────────────────────────────
+    async function loadProjects() {
+      try {
+        const res = await fetch('/admin/api/projects', {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        _projects = await res.json();
+        renderTable();
+        renderStats();
+      } catch (e) {
+        showToast('Erreur lors du chargement des projets : ' + e.message, 'error');
+        renderEmptyTable('Erreur de chargement');
+      }
+    }
+
+    // ── Rendu table ─────────────────────────────────────────
+    function renderTable() {
+      const tbody = document.getElementById('projectsBody');
+      if (!_projects.length) {
+        renderEmptyTable('Aucun projet. Cliquez sur « Nouveau projet » pour commencer.');
+        return;
+      }
+      tbody.innerHTML = _projects.map(p => {
+        const tags = (p.tags || '').split(',')
+          .map(t => t.trim()).filter(Boolean)
+          .map(t => `<span class="tag-pill">${esc(t)}</span>`).join('');
+
+        const statusLabels = { online: 'En ligne', offline: 'Hors ligne', maintenance: 'Maintenance' };
+        const s = p.status || 'online';
+
+        const iconClass = esc(p.icon_class || 'fa-solid fa-robot');
+        const iconColor = esc(p.icon_color || 'icon-green');
+
+        return `
+        <tr data-id="${p.id}">
+          <td class="td-icon">
+            <div class="td-icon-preview ${iconColor}"><i class="${iconClass}"></i></div>
+            <span class="td-name">${esc(p.name)}</span>
+          </td>
+          <td><span class="td-url" title="${esc(p.url)}">${esc(p.url)}</span></td>
+          <td><div class="td-tags">${tags || '<span style="color:var(--text-secondary);font-size:.78rem">—</span>'}</div></td>
+          <td>
+            <span class="status-badge ${s}">
+              <span class="status-dot"></span>${statusLabels[s] || s}
+            </span>
+          </td>
+          <td class="order-cell">${p.display_order}</td>
+          <td>
+            <label class="active-toggle" title="${p.is_active ? 'Actif' : 'Inactif'}">
+              <input type="checkbox" ${p.is_active ? 'checked' : ''}
+                onchange="toggleActive(${p.id}, this.checked)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </td>
+          <td>
+            <div class="actions">
+              <button class="btn-edit" onclick="openEdit(${p.id})" title="Modifier">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="btn-delete" onclick="openConfirm(${p.id})" title="Supprimer">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderEmptyTable(msg) {
+      document.getElementById('projectsBody').innerHTML =
+        `<tr class="empty-row"><td colspan="7"><i class="fa-solid fa-inbox"></i>${esc(msg)}</td></tr>`;
+    }
+
+    function renderStats() {
+      const total = _projects.length;
+      const online = _projects.filter(p => p.status === 'online' && p.is_active).length;
+      const maint  = _projects.filter(p => p.status === 'maintenance').length;
+      const offline = _projects.filter(p => p.status === 'offline').length;
+      const inactive = _projects.filter(p => !p.is_active).length;
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statOnline').textContent = online;
+      document.getElementById('statMaintenance').textContent = maint;
+      document.getElementById('statOffline').textContent = offline;
+      document.getElementById('statInactive').textContent = inactive;
+    }
+
+    // ── Modal création ───────────────────────────────────────
+    function openModal() {
+      document.getElementById('editId').value = '';
+      document.getElementById('modalTitle').innerHTML =
+        '<i class="fa-solid fa-plus-circle" style="color:var(--accent);margin-right:8px;"></i>Nouveau projet';
+      document.getElementById('projectForm').reset();
+      document.getElementById('fIcon').value = 'fa-solid fa-robot';
+      document.getElementById('fColor').value = 'icon-green';
+      document.getElementById('fOrder').value = _projects.length;
+      document.getElementById('fActive').checked = true;
+      updateIconPreview();
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    // ── Modal édition ────────────────────────────────────────
+    function openEdit(id) {
+      const p = _projects.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('editId').value = id;
+      document.getElementById('modalTitle').innerHTML =
+        '<i class="fa-solid fa-pen" style="color:var(--accent);margin-right:8px;"></i>Modifier le projet';
+      document.getElementById('fName').value   = p.name || '';
+      document.getElementById('fDesc').value   = p.description || '';
+      document.getElementById('fUrl').value    = p.url || '';
+      document.getElementById('fIcon').value   = p.icon_class || 'fa-solid fa-robot';
+      document.getElementById('fColor').value  = p.icon_color || 'icon-green';
+      document.getElementById('fTags').value   = p.tags || '';
+      document.getElementById('fStatus').value = p.status || 'online';
+      document.getElementById('fOrder').value  = p.display_order ?? 0;
+      document.getElementById('fActive').checked = !!p.is_active;
+      updateIconPreview();
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    // ── Prévisualisation icône ───────────────────────────────
+    function updateIconPreview() {
+      const iconClass = document.getElementById('fIcon').value.trim() || 'fa-solid fa-robot';
+      const color     = document.getElementById('fColor').value || 'icon-green';
+      const box  = document.getElementById('iconPreviewBox');
+      const icon = document.getElementById('iconPreviewEl');
+      // Remove all icon-* classes
+      box.className = 'icon-preview-box ' + color;
+      icon.className = iconClass;
+    }
+
+    // ── Soumission formulaire ────────────────────────────────
+    async function submitForm(e) {
+      e.preventDefault();
+      const id = document.getElementById('editId').value;
+      const payload = {
+        name:          document.getElementById('fName').value.trim(),
+        description:   document.getElementById('fDesc').value.trim(),
+        url:           document.getElementById('fUrl').value.trim(),
+        icon_class:    document.getElementById('fIcon').value.trim() || 'fa-solid fa-robot',
+        icon_color:    document.getElementById('fColor').value,
+        tags:          document.getElementById('fTags').value.trim(),
+        status:        document.getElementById('fStatus').value,
+        display_order: parseInt(document.getElementById('fOrder').value) || 0,
+        is_active:     document.getElementById('fActive').checked,
+      };
+
+      if (!payload.name || !payload.url) {
+        showToast('Nom et URL sont obligatoires.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.textContent = 'Enregistrement…';
+
+      try {
+        const isEdit = !!id;
+        const url    = isEdit ? `/admin/api/projects/${id}` : '/admin/api/projects';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        closeModal();
+        await loadProjects();
+        showToast(isEdit ? 'Projet mis à jour.' : 'Projet créé avec succès.', 'success');
+      } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right:7px;"></i>Enregistrer';
+      }
+    }
+
+    // ── Toggle actif inline ──────────────────────────────────
+    async function toggleActive(id, active) {
+      const p = _projects.find(x => x.id === id);
+      if (!p) return;
+      try {
+        const res = await fetch(`/admin/api/projects/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify({ ...p, is_active: active }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        p.is_active = active;
+        renderStats();
+        showToast(active ? 'Projet activé.' : 'Projet désactivé.', 'success');
+      } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+        await loadProjects(); // revert
+      }
+    }
+
+    // ── Suppression ──────────────────────────────────────────
+    function openConfirm(id) {
+      _deleteId = id;
+      const p = _projects.find(x => x.id === id);
+      if (p) {
+        document.getElementById('confirmText').textContent =
+          `"${p.name}" sera définitivement supprimé. Cette action est irréversible.`;
+      }
+      document.getElementById('confirmOverlay').classList.add('open');
+    }
+    function closeConfirm() {
+      _deleteId = null;
+      document.getElementById('confirmOverlay').classList.remove('open');
+    }
+    async function confirmDelete() {
+      if (!_deleteId) return;
+      const id = _deleteId;
+      closeConfirm();
+      try {
+        const res = await fetch(`/admin/api/projects/${id}`, {
+          method: 'DELETE',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await loadProjects();
+        showToast('Projet supprimé.', 'success');
+      } catch (err) {
+        showToast('Erreur lors de la suppression : ' + err.message, 'error');
+      }
+    }
+
+    // ── Toast ────────────────────────────────────────────────
+    let _toastTimer = null;
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toast');
+      const icon  = document.getElementById('toastIcon');
+      const text  = document.getElementById('toastMsg');
+      icon.className = type === 'success'
+        ? 'fa-solid fa-circle-check success'
+        : 'fa-solid fa-circle-exclamation error';
+      text.textContent = msg;
+      toast.className = 'toast show' + (type === 'error' ? ' error' : '');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+    }
+
+    // ── Utilitaire d'échappement HTML ────────────────────────
+    function esc(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ── Fermer modals en cliquant dehors ─────────────────────
+    document.getElementById('modalOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+    document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeConfirm();
+    });
+
+    // ── Touche Échap ─────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal(); closeConfirm(); }
+    });
+  </script>
+
+</body>
+</html>
