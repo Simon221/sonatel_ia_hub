@@ -1,0 +1,18 @@
+# Git
+.git
+.gitignore
+
+# Environnement Python
+env/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Fichiers sensibles
+.env
+
+# Divers
+*.md
+notes.txt
+exemples/

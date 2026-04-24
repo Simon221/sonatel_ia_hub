@@ -12,3 +12,9 @@ docker compose logs -f postgres
 
 # Accéder à la base directement
 docker exec -it sonatel_ia_hub_db psql -U sonatel -d sonatel_ia_hub
+
+# Redémarrer après un changement de code
+docker compose up -d --build
+
+# Redémarrer sans rebuild
+docker compose restart web
