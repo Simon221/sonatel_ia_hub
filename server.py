@@ -119,7 +119,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_admin_api_list_users()
         elif path == "/admin/api/projects/all":
             self._handle_admin_api_all_projects_simple()
-        elif re.match(r"^/go/\d+$", path):
+        elif re.match(r"^/app/\d+$", path):
             self._handle_go_redirect(path)
         else:
             super().do_GET()
@@ -193,6 +193,14 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         import time as _time
         dev_user = dict(_auth._DEV_USER)
         dev_user["expires_at"] = _time.time() + _auth.SESSION_MAX_AGE
+
+        # Auto-enregistrement à la première connexion (aucun accès par défaut)
+        if _db and DB_AVAILABLE:
+            _db.register_user_on_login(
+                email        = dev_user.get("email", ""),
+                display_name = dev_user.get("name") or dev_user.get("preferred_username") or "",
+            )
+
         _name, cookie_header = _auth.create_session_cookie(dev_user)
         self.send_response(302)
         self.send_header("Location", "/")
@@ -219,6 +227,13 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         if not ok:
             self._serve_login_page(error_msg=err_msg)
             return
+
+        # Auto-enregistrement à la première connexion (aucun accès par défaut)
+        if _db and DB_AVAILABLE:
+            _db.register_user_on_login(
+                email        = session_data.get("email", ""),
+                display_name = session_data.get("name") or session_data.get("preferred_username") or "",
+            )
 
         _name, cookie_header = _auth.create_session_cookie(session_data)
         self.send_response(302)
@@ -268,7 +283,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
         # Injection des cartes dynamiques depuis la base de données
         user_email = (user or {}).get("email", "") if user else ""
-        content = content.replace("{{CARDS_HTML}}", self._build_cards_html(user_email))
+        content = content.replace("{{CARDS_HTML}}", self._build_cards_html(user_email, is_admin))
 
         # Bouton espace admin : visible seulement pour les admins
         if is_admin:
@@ -296,7 +311,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
     # -- Génération des cartes HTML depuis la DB ----------
     @staticmethod
-    def _build_cards_html(user_email: str = "") -> str:
+    def _build_cards_html(user_email: str = "", is_admin: bool = False) -> str:
         if _db is None or not DB_AVAILABLE:
             return (
                 '<div class="no-apps">'
@@ -317,7 +332,11 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             )
 
         # Récupère les IDs autorisés (None = accès complet)
-        allowed_ids = _db.get_user_allowed_project_ids(user_email) if user_email else None
+        # Les admins ont toujours un accès complet à toutes les applications
+        if is_admin or not user_email:
+            allowed_ids = None
+        else:
+            allowed_ids = _db.get_user_allowed_project_ids(user_email)
 
         STATUS_LABELS = {
             "online":      ("", "En ligne"),
@@ -345,7 +364,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             has_access = allowed_ids is None or p["id"] in allowed_ids
             if has_access:
                 parts.append(
-                    f'<a class="card" href="/go/{p["id"]}" target="_blank" data-name="{search_data}">'
+                    f'<a class="card" href="/app/{p["id"]}" target="_blank" data-name="{search_data}">'
                     f'<div class="card-header">'
                     f'<div class="card-icon-wrap {icon_color}"><i class="{icon_cls}"></i></div>'
                     f'<i class="fa-solid fa-arrow-up-right card-arrow"></i>'
@@ -403,10 +422,10 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         content = content.replace("{{DB_STATUS}}", "ok" if DB_AVAILABLE else "disabled")
         self._send_html(content)
 
-    # -- /go/<id> : redirige vers l'URL réelle du projet ---
+    # -- /app/<id> : redirige vers l'URL réelle du projet ---
     def _handle_go_redirect(self, path: str) -> None:
         """Masque l'URL réelle : sert une page iframe plein écran pointant vers l'app."""
-        m = re.match(r"^/go/(\d+)$", path)
+        m = re.match(r"^/app/(\d+)$", path)
         if not m:
             self.send_error(404)
             return

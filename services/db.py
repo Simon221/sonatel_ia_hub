@@ -560,13 +560,37 @@ def delete_portal_user(user_id: int) -> bool:
         return False
 
 
+def register_user_on_login(email: str, display_name: str) -> None:
+    """
+    Enregistre automatiquement un utilisateur à sa première connexion.
+    Si l'utilisateur existe déjà, ne fait rien (ne modifie pas ses accès).
+    """
+    if not DB_AVAILABLE or not email:
+        return
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO portal_users (email, display_name, all_access, created_by)
+            VALUES (%s, %s, FALSE, 'login')
+            ON CONFLICT (email) DO NOTHING;
+            """,
+            (email.strip().lower(), (display_name or "").strip()),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        logger.error("[db] register_user_on_login : %s", exc)
+
+
 def get_user_allowed_project_ids(email: str) -> list[int] | None:
     """
     Retourne la liste des project_id autorisés pour cet email.
-    - None  → utilisateur non trouvé dans portal_users → accès complet (comportement legacy)
-    - []    → liste vide (aucun accès, si all_access=False)
+    - None  → all_access=True → accès complet
+    - []    → liste vide (aucun accès, utilisateur non encore autorisé)
     - [...]  → ids explicitement autorisés
-    - all_access=True → None (accès complet)
     """
     if not DB_AVAILABLE or not email:
         return None
@@ -581,12 +605,12 @@ def get_user_allowed_project_ids(email: str) -> list[int] | None:
         if row is None:
             cur.close()
             conn.close()
-            return None  # pas dans la table → accès complet
+            return []  # pas dans la table → aucun accès par défaut
         uid, all_access = row
         if all_access:
             cur.close()
             conn.close()
-            return None  # accès total explicite
+            return None  # accès total explicite (all_access=True)
         cur.execute(
             "SELECT project_id FROM user_project_access WHERE user_id = %s;",
             (uid,)

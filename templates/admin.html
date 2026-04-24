@@ -765,6 +765,11 @@
       color: #f0a81e;
       border: 1px solid rgba(240,170,30,0.25);
     }
+    .access-pill.none {
+      background: rgba(220,50,50,0.12);
+      color: #e05555;
+      border: 1px solid rgba(220,50,50,0.22);
+    }
     .btn-edit-user {
       background: rgba(0,179,89,0.12);
       color: var(--accent);
@@ -1690,7 +1695,7 @@
     function renderUsersTable() {
       const tbody = document.getElementById('usersBody');
       if (!_users.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="5"><i class="fa-solid fa-user-slash"></i> Aucun utilisateur configuré. Par défaut, tous les utilisateurs authentifiés voient toutes les applications.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5"><i class="fa-solid fa-user-slash"></i> Aucun utilisateur enregistré. Les utilisateurs sont ajoutés automatiquement à leur première connexion.</td></tr>';
         return;
       }
       tbody.innerHTML = _users.map(u => {
@@ -1699,7 +1704,9 @@
           : '—';
         const accessBadge = u.all_access
           ? '<span class="access-pill all"><i class="fa-solid fa-unlock-keyhole"></i> Accès total</span>'
-          : `<span class="access-pill partial"><i class="fa-solid fa-list-check"></i> ${(u.project_ids || []).length} app${(u.project_ids||[]).length > 1 ? 's' : ''}</span>`;
+          : (u.project_ids || []).length === 0
+            ? '<span class="access-pill none"><i class="fa-solid fa-lock"></i> Aucun accès</span>'
+            : `<span class="access-pill partial"><i class="fa-solid fa-list-check"></i> ${(u.project_ids || []).length} app${(u.project_ids||[]).length > 1 ? 's' : ''}</span>`;
         return `
         <tr>
           <td>${esc(u.email)}</td>
