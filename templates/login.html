@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sonatel IA Hub — Connexion</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/styles/login.css" />
+  <style>
+    /* Override Inter depuis Google Fonts si disponible */
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  </style>
+</head>
+<body>
+
+  <div class="card" role="main">
+
+    <!-- Logo -->
+    <div class="logo-wrap">
+      <!-- Si assets/images/logo-sonatel.png existe, décommentez la ligne suivante -->
+      <!-- <img src="/assets/images/logo-sonatel.png" alt="Sonatel" /> -->
+      <span class="logo-letter">S</span>
+    </div>
+
+    <h1>Sonatel IA Hub</h1>
+    <p class="subtitle">
+      Portail d'Intelligence Artificielle.<br />
+      Connectez-vous avec votre compte AD Windows.
+    </p>
+
+    <!-- Badge Active Directory -->
+    <!-- <div class="ad-badge">Active Directory · SSO Keycloak</div> -->
+
+    <!-- Bloc d'erreur (visible uniquement si {{ERROR_MESSAGE}} est renseigné) -->
+    {{ERROR_BLOCK}}
+
+    <!-- Bouton de connexion SSO -->
+    <a class="sso-btn" href="/auth/start" id="ssoBtn" aria-label="Se connecter via Sonatel SSO">
+      <span class="btn-icon">🔐</span>
+      Se connecter avec Sonatel SSO
+    </a>
+
+    <!-- Note de bas de page -->
+    <p class="footer-note">
+      <strong>DIPX / SDDH</strong> &nbsp;·&nbsp; Data &amp; Intelligence Artificielle.<br />
+      En cas de problème, contactez le support au
+      <a href="mailto:support-ia@sonatel.sn">support-ia@sonatel.sn</a>.
+    </p>
+
+  </div>
+
+  <script>
+    // Affiche un spinner sur le bouton pendant la redirection vers Keycloak
+    document.getElementById('ssoBtn').addEventListener('click', function () {
+      this.classList.add('loading');
+      this.textContent = 'Redirection en cours…';
+    });
+  </script>
+
+</body>
+</html>

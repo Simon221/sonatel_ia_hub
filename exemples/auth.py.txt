@@ -1,0 +1,362 @@
+"""
+Keycloak / AD authentication module — OIDC Authorization Code Flow
+All configuration comes from environment variables (loaded via .env).
+
+Flow:
+  1. User hits any protected route → redirected to /login
+  2. /login → redirects to Keycloak authorization endpoint
+  3. Keycloak authenticates via AD, redirects back to /auth/callback?code=…
+  4. /auth/callback exchanges code for tokens, stores session server-side,
+     puts only a signed session-ID in a small httponly cookie
+  5. All subsequent requests validate the session-ID cookie
+  6. /logout revokes the server session and redirects to Keycloak logout
+
+Session storage: in-memory dict (per process).
+For multi-process/multi-instance deployments replace _session_store with Redis.
+"""
+
+from __future__ import annotations
+
+import os
+import time
+import hashlib
+import hmac
+import secrets as _secrets
+import base64
+import logging
+from urllib.parse import urlencode
+
+import httpx
+from dotenv import load_dotenv
+from fastapi import Request, HTTPException
+from fastapi.responses import RedirectResponse
+from jose import JWTError, jwt
+
+load_dotenv()
+
+logger = logging.getLogger("auth")
+
+# ── Config from .env ──────────────────────────────────────────────────────────
+KEYCLOAK_URL           = os.getenv("KEYCLOAK_URL")
+KEYCLOAK_REALM         = os.getenv("KEYCLOAK_REALM")
+KEYCLOAK_CLIENT_ID     = os.getenv("KEYCLOAK_CLIENT_ID")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
+APP_BASE_URL           = os.getenv("APP_BASE_URL", "http://localhost:7860")
+SESSION_SECRET         = os.getenv("SESSION_SECRET", "")
+SESSION_COOKIE         = os.getenv("SESSION_COOKIE", "databot_session")
+CLOCK_SKEW             = int(os.getenv("AUTH_CLOCK_SKEW", "30"))
+
+# ── Auth mode ─────────────────────────────────────────────────────────────────
+# AUTH_ENABLED = True only when all required Keycloak variables are present.
+# If any is missing (local dev), auth is bypassed and every request is treated
+# as authenticated with a local dev user.
+AUTH_ENABLED: bool = bool(
+    KEYCLOAK_URL and KEYCLOAK_REALM and KEYCLOAK_CLIENT_ID and KEYCLOAK_CLIENT_SECRET
+)
+
+_DEV_USER = {
+    "sub": "dev-local",
+    "preferred_username": "dev",
+    "name": "Dev Local",
+    "email": "dev@local",
+    "groups": [],
+    "expires_at": 9_999_999_999,
+}
+
+if not AUTH_ENABLED:
+    logger.warning(
+        "[auth] Keycloak non configuré — authentification désactivée (mode développement). "
+        "Renseignez KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID et "
+        "KEYCLOAK_CLIENT_SECRET dans .env pour activer la protection."
+    )
+
+# Derived Keycloak endpoints (only meaningful when AUTH_ENABLED)
+_BASE                 = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect" if AUTH_ENABLED else ""
+KEYCLOAK_AUTH_URL     = f"{_BASE}/auth"
+KEYCLOAK_TOKEN_URL    = f"{_BASE}/token"
+KEYCLOAK_LOGOUT_URL   = f"{_BASE}/logout"
+KEYCLOAK_USERINFO_URL = f"{_BASE}/userinfo"
+KEYCLOAK_JWKS_URL     = f"{_BASE}/certs"
+KEYCLOAK_CALLBACK_PATH = "/auth/callback"
+
+# ── Server-side session store ─────────────────────────────────────────────────
+# Keys: random session-ID (urlsafe base64, 32 bytes → 43 chars)
+# Values: dict with user info + tokens + expiry
+# The browser only ever sees the signed session-ID — no token in the cookie.
+_session_store: dict[str, dict] = {}
+
+
+def _new_session(data: dict) -> str:
+    """Store session data and return a new signed session ID."""
+    sid = _secrets.token_urlsafe(32)
+    _session_store[sid] = data
+    return _sign_sid(sid)
+
+
+def _sign_sid(sid: str) -> str:
+    sig = hmac.new(SESSION_SECRET.encode(), sid.encode(), hashlib.sha256).digest()
+    tag = base64.urlsafe_b64encode(sig).decode()[:16]  # 16-char tag is sufficient
+    return f"{sid}.{tag}"
+
+
+def _verify_sid(cookie_value: str) -> str | None:
+    """Verify the cookie signature and return the raw session-ID, or None."""
+    try:
+        sid, tag = cookie_value.rsplit(".", 1)
+    except ValueError:
+        return None
+    expected = base64.urlsafe_b64encode(
+        hmac.new(SESSION_SECRET.encode(), sid.encode(), hashlib.sha256).digest()
+    ).decode()[:16]
+    if not hmac.compare_digest(expected, tag):
+        return None
+    return sid
+
+
+def _delete_session(cookie_value: str) -> None:
+    sid = _verify_sid(cookie_value or "")
+    if sid:
+        _session_store.pop(sid, None)
+
+
+# ── JWKS cache ────────────────────────────────────────────────────────────────
+_jwks_cache: dict | None = None
+_jwks_fetched_at: float = 0.0
+_JWKS_TTL = 3600
+
+
+async def _get_jwks() -> dict:
+    global _jwks_cache, _jwks_fetched_at
+    now = time.time()
+    if _jwks_cache and now - _jwks_fetched_at < _JWKS_TTL:
+        return _jwks_cache
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(KEYCLOAK_JWKS_URL)
+        resp.raise_for_status()
+        _jwks_cache = resp.json()
+        _jwks_fetched_at = now
+    return _jwks_cache
+
+
+# ── Token refresh ─────────────────────────────────────────────────────────────
+
+async def _refresh_access_token(refresh_token: str) -> dict | None:
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            resp = await client.post(KEYCLOAK_TOKEN_URL, data={
+                "grant_type": "refresh_token",
+                "client_id": KEYCLOAK_CLIENT_ID,
+                "client_secret": KEYCLOAK_CLIENT_SECRET,
+                "refresh_token": refresh_token,
+            })
+            if resp.status_code != 200:
+                return None
+            return resp.json()
+        except Exception as exc:
+            logger.warning("Token refresh failed: %s", exc)
+            return None
+
+
+# ── Core auth helpers ─────────────────────────────────────────────────────────
+
+def build_login_redirect(request: Request) -> RedirectResponse:
+    """Redirect the browser to Keycloak's login page (or / in dev mode)."""
+    if not AUTH_ENABLED:
+        return RedirectResponse(url="/")
+    redirect_uri = f"{APP_BASE_URL}{KEYCLOAK_CALLBACK_PATH}"
+    params = {
+        "client_id": KEYCLOAK_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid profile email",
+    }
+    return RedirectResponse(url=f"{KEYCLOAK_AUTH_URL}?{urlencode(params)}")
+
+
+async def handle_callback(request: Request) -> RedirectResponse:
+    """
+    Exchange the authorization code for tokens, validate the ID token,
+    fetch user info and create a server-side session.
+    """
+    code = request.query_params.get("code")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
+    redirect_uri = f"{APP_BASE_URL}{KEYCLOAK_CALLBACK_PATH}"
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        token_resp = await client.post(KEYCLOAK_TOKEN_URL, data={
+            "grant_type": "authorization_code",
+            "client_id": KEYCLOAK_CLIENT_ID,
+            "client_secret": KEYCLOAK_CLIENT_SECRET,
+            "code": code,
+            "redirect_uri": redirect_uri,
+        })
+
+    if token_resp.status_code != 200:
+        logger.error(
+            "Keycloak token exchange failed [HTTP %s]: %s",
+            token_resp.status_code, token_resp.text,
+        )
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                f"Échec de l'échange de token Keycloak (HTTP {token_resp.status_code}). "
+                "Vérifiez KEYCLOAK_CLIENT_SECRET et Valid Redirect URIs dans Keycloak."
+            ),
+        )
+
+    tokens        = token_resp.json()
+    access_token  = tokens.get("access_token", "")
+    refresh_token = tokens.get("refresh_token", "")
+    expires_in    = tokens.get("expires_in", 300)
+    id_token      = tokens.get("id_token", "")
+
+    # Non-blocking ID token validation (see comment below)
+    if id_token:
+        try:
+            jwks = await _get_jwks()
+            unverified = jwt.get_unverified_claims(id_token)
+            logger.debug("ID token claims (unverified): %s", unverified)
+            validated = False
+            for aud_opt in [KEYCLOAK_CLIENT_ID, None]:
+                try:
+                    opts: dict = {"leeway": CLOCK_SKEW}
+                    if aud_opt is None:
+                        opts["verify_aud"] = False
+                    jwt.decode(id_token, jwks, algorithms=["RS256"],
+                               audience=aud_opt, options=opts)
+                    validated = True
+                    break
+                except JWTError:
+                    continue
+            if not validated:
+                logger.warning(
+                    "ID token signature could not be verified (continuing via /userinfo). "
+                    "Check KEYCLOAK_CLIENT_ID matches the 'aud' claim: %s",
+                    unverified.get("aud"),
+                )
+        except Exception as exc:
+            logger.warning("ID token decode skipped: %s", exc)
+
+    # Fetch user info — this is the authoritative identity check
+    async with httpx.AsyncClient(timeout=10) as client:
+        ui_resp = await client.get(
+            KEYCLOAK_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    if ui_resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Could not fetch user info")
+
+    user_info = ui_resp.json()
+
+    # Build session data (stored server-side, NOT in the cookie)
+    session_data = {
+        "sub":                user_info.get("sub"),
+        "preferred_username": user_info.get("preferred_username"),
+        "name":               user_info.get("name", user_info.get("preferred_username", "")),
+        "email":              user_info.get("email", ""),
+        "groups":             user_info.get("groups", []),
+        "refresh_token":      refresh_token,
+        "id_token":           id_token,        # for logout id_token_hint
+        "expires_at":         int(time.time()) + expires_in,
+    }
+
+    signed_sid = _new_session(session_data)
+
+    response = RedirectResponse(url="/", status_code=302)
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=signed_sid,
+        httponly=True,
+        samesite="lax",
+        secure=APP_BASE_URL.startswith("https"),
+        max_age=int(os.getenv("SESSION_MAX_AGE", "28800")),
+    )
+    return response
+
+
+async def get_current_user(request: Request) -> dict | None:
+    """
+    Validate the session-ID cookie and return the user dict.
+    In dev mode (Keycloak not configured), always returns the local dev user.
+    Automatically refreshes the token if it is about to expire (< 60s).
+    """
+    if not AUTH_ENABLED:
+        return _DEV_USER
+
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if not cookie:
+        return None
+
+    sid = _verify_sid(cookie)
+    if not sid or sid not in _session_store:
+        return None
+
+    session = _session_store[sid]
+
+    # Refresh token if about to expire
+    expires_at = session.get("expires_at", 0)
+    now = time.time()
+    if now >= expires_at - 60:
+        new_tokens = await _refresh_access_token(session.get("refresh_token", ""))
+        if not new_tokens:
+            _session_store.pop(sid, None)
+            return None
+        session["refresh_token"] = new_tokens.get("refresh_token", session["refresh_token"])
+        session["expires_at"]    = int(now) + new_tokens.get("expires_in", 300)
+        if new_tokens.get("id_token"):
+            session["id_token"] = new_tokens["id_token"]
+
+    return session
+
+
+def require_auth(request: Request, user: dict | None) -> dict:
+    """Raise redirect if user is not authenticated."""
+    if user is None:
+        raise HTTPException(status_code=307, headers={"Location": "/login"})
+    return user
+
+
+async def logout(request: Request) -> RedirectResponse:
+    """
+    Delete the server-side session and redirect to Keycloak logout.
+    In dev mode, simply redirects to /login.
+
+    Keycloak validates post_logout_redirect_uri strictly:
+    - It must be listed in "Valid post logout redirect URIs" for the client.
+    - On many Keycloak versions it is only honoured when id_token_hint is present.
+    Strategy:
+    - If id_token is available → send id_token_hint + post_logout_redirect_uri
+      (Keycloak terminates SSO and redirects back to /login automatically)
+    - If id_token is missing   → skip post_logout_redirect_uri entirely to avoid
+      the "Invalid redirect uri" error; the local session is already destroyed.
+    """
+    cookie = request.cookies.get(SESSION_COOKIE, "")
+    sid    = _verify_sid(cookie)
+    session = _session_store.pop(sid, {}) if sid else {}
+
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie(SESSION_COOKIE)
+
+    if not AUTH_ENABLED:
+        return response
+
+    stored_id_token = session.get("id_token", "")
+    if stored_id_token:
+        # Full OIDC RP-Initiated Logout with redirect back to /login
+        params: dict = {
+            "client_id":               KEYCLOAK_CLIENT_ID,
+            "id_token_hint":           stored_id_token,
+            "post_logout_redirect_uri": f"{APP_BASE_URL}/login",
+        }
+    else:
+        # id_token unavailable — terminate Keycloak SSO session without redirect.
+        # Keycloak will show its own "You have been logged out" page.
+        params = {"client_id": KEYCLOAK_CLIENT_ID}
+
+    kc_logout_url = f"{KEYCLOAK_LOGOUT_URL}?{urlencode(params)}"
+    logger.debug("Logout redirect → %s", kc_logout_url)
+    response = RedirectResponse(url=kc_logout_url, status_code=302)
+    response.delete_cookie(SESSION_COOKIE)
+    return response

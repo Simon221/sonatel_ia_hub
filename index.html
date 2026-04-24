@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sonatel IA — Portail des Applications</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <!-- Feuille de style principale -->
+  <link rel="stylesheet" href="assets/styles/main.css" />
+  <style>
+    /* ─── DESIGN TOKENS ─────────────────────────────────── */
+    :root {
+      --g1: #004d26;
+      --g2: #007a3d;
+      --g3: #00b359;
+      --g4: #33cc77;
+
+      --bg-dark:  #011a0d;
+      --bg-card:  rgba(255,255,255,0.05);
+      --border:   rgba(0, 179, 89, 0.25);
+      --text-primary:   #ffffff;
+      --text-secondary: rgba(255,255,255,0.65);
+      --accent:   #00b359;
+      --shadow:   0 20px 60px rgba(0,0,0,0.5);
+
+      --radius-card: 20px;
+      --radius-badge: 8px;
+      --transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ─── RESET & BASE ───────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── BACKGROUND ANIMATION ───────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 10%, rgba(0,179,89,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 80%, rgba(0,122,61,0.15) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 50% 50%, rgba(0,77,38,0.25) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── HEADER ─────────────────────────────────────────── */
+    header {
+      position: relative;
+      z-index: 10;
+      background: linear-gradient(135deg, var(--g1) 0%, var(--g2) 55%, var(--g3) 100%);
+      padding: 0 2rem;
+      box-shadow: 0 4px 30px rgba(0,179,89,0.3);
+    }
+
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      backdrop-filter: blur(4px);
+    }
+
+    .logo-text {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text span {
+      font-weight: 300;
+      opacity: 0.85;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-badge {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      backdrop-filter: blur(4px);
+    }
+
+    .user-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      border: 2px solid rgba(255,255,255,0.3);
+      transition: var(--transition);
+    }
+    .user-avatar:hover { background: rgba(255,255,255,0.3); }
+
+    /* ─── PROFILE DROPDOWN ───────────────────────────────── */
+    .profile-wrap {
+      position: relative;
+    }
+
+    .user-avatar {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .profile-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      min-width: 220px;
+      background: #0a2e18;
+      border: 1px solid rgba(0,179,89,0.3);
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,179,89,0.1);
+      backdrop-filter: blur(16px);
+      overflow: hidden;
+      z-index: 100;
+      animation: dropIn 0.18s cubic-bezier(0.4,0,0.2,1);
+    }
+    .profile-dropdown.open { display: block; }
+
+    @keyframes dropIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    .profile-info {
+      padding: 16px 18px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .profile-avatar-lg {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--g2), var(--g3));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+
+    .profile-meta { overflow: hidden; }
+    .profile-meta .p-name {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .profile-meta .p-email {
+      font-size: 0.73rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dropdown-divider {
+      height: 1px;
+      background: rgba(0,179,89,0.15);
+      margin: 0;
+    }
+
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 13px 18px;
+      background: transparent;
+      border: none;
+      color: #ff7070;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s;
+      text-align: left;
+    }
+    .btn-logout:hover {
+      background: rgba(220,50,50,0.12);
+      color: #ff9090;
+    }
+    .btn-logout i { font-size: 0.85rem; width: 16px; text-align: center; }
+
+    /* ─── HERO ───────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 72px 2rem 56px;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,179,89,0.12);
+      border: 1px solid rgba(0,179,89,0.3);
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+    }
+    .hero-eyebrow i { font-size: 0.7rem; }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--g3) 0%, var(--g4) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      max-width: 520px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+
+    /* ─── SEARCH BAR ─────────────────────────────────────── */
+    .search-bar {
+      display: flex;
+      align-items: center;
+      max-width: 480px;
+      margin: 0 auto 56px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 10px 10px 20px;
+      gap: 10px;
+      backdrop-filter: blur(10px);
+      transition: var(--transition);
+    }
+    .search-bar:focus-within {
+      border-color: var(--accent);
+      background: rgba(0,179,89,0.08);
+      box-shadow: 0 0 0 4px rgba(0,179,89,0.12);
+    }
+    .search-bar i { color: var(--text-secondary); font-size: 0.9rem; }
+    .search-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+    .search-bar input::placeholder { color: var(--text-secondary); }
+    .search-bar button {
+      background: linear-gradient(135deg, var(--g2), var(--g3));
+      border: none;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: var(--transition);
+    }
+    .search-bar button:hover { opacity: 0.88; transform: scale(0.97); }
+
+    /* ─── SECTION TITLE ──────────────────────────────────── */
+    .section-header {
+      max-width: 1280px;
+      margin: 0 auto 32px;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      z-index: 1;
+    }
+    .section-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .section-header h2 span { color: var(--accent); }
+    .count-badge {
+      background: rgba(0,179,89,0.15);
+      border: 1px solid rgba(0,179,89,0.3);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+
+    /* ─── CARDS GRID ─────────────────────────────────────── */
+    .cards-grid {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto 80px;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    /* ─── CARD ───────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 28px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      backdrop-filter: blur(16px);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-card);
+      background: linear-gradient(135deg, rgba(0,179,89,0.08) 0%, transparent 60%);
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      border-radius: var(--radius-card) var(--radius-card) 0 0;
+      background: linear-gradient(90deg, var(--g2), var(--g3), var(--g4));
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .card:hover {
+      transform: translateY(-6px) scale(1.01);
+      border-color: rgba(0,179,89,0.55);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,179,89,0.2), 0 0 40px rgba(0,179,89,0.12);
+    }
+    .card:hover::before { opacity: 1; }
+    .card:hover::after  { opacity: 1; }
+
+    .card:active { transform: translateY(-3px) scale(0.99); }
+
+    /* Card icon */
+    .card-icon-wrap {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Card header row */
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-arrow {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-top: 4px;
+      transition: var(--transition);
+    }
+    .card:hover .card-arrow {
+      color: var(--accent);
+      transform: translate(3px, -3px);
+    }
+
+    /* Card body */
+    .card-body { position: relative; z-index: 1; }
+    .card-body h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+    .card-body p {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    /* Card footer */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      z-index: 1;
+      margin-top: auto;
+    }
+
+    .card-tag {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--radius-badge);
+      background: rgba(0,179,89,0.12);
+      border: 1px solid rgba(0,179,89,0.2);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .card-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    .status-dot.offline { background: #888; box-shadow: none; animation: none; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* ─── ICON COLOR VARIANTS ────────────────────────────── */
+    .icon-green  { background: rgba(0,179,89,0.18);  color: #00cc66; }
+    .icon-teal   { background: rgba(0,150,120,0.18); color: #00c8a0; }
+    .icon-lime   { background: rgba(100,200,50,0.18);color: #88dd44; }
+    .icon-cyan   { background: rgba(0,180,200,0.18); color: #00c8d0; }
+    .icon-amber  { background: rgba(240,170,30,0.15);color: #f0a81e; }
+    .icon-purple { background: rgba(130,80,220,0.15);color: #a066e0; }
+    .icon-blue   { background: rgba(40,130,230,0.15);color: #3a9cf0; }
+    .icon-rose   { background: rgba(220,60,100,0.15);color: #e05080; }
+
+    /* ─── DIVIDER / SEPARATOR ────────────────────────────── */
+    .divider {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto 48px;
+      padding: 0 2rem;
+    }
+    .divider hr {
+      border: none;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+
+    /* ─── FOOTER ─────────────────────────────────────────── */
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 32px 2rem;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    footer strong { color: var(--accent); }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .header-inner { height: 60px; }
+      .hero { padding: 48px 1.25rem 40px; }
+      .cards-grid { grid-template-columns: 1fr; padding: 0 1.25rem; }
+      .section-header { padding: 0 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════ -->
+  <header>
+    <div class="header-inner">
+      <a class="logo" href="#">
+        <div class="logo-icon">🌿</div>
+        <div class="logo-text">Sonatel <span>IA Hub</span></div>
+      </a>
+      <div class="header-right">
+        <span class="header-badge">Portail Interne</span>
+        <div class="profile-wrap">
+          <div class="user-avatar" id="profileBtn" onclick="toggleProfile()" title="Mon profil">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="profile-dropdown" id="profileDropdown">
+            <div class="profile-info">
+              <div class="profile-avatar-lg"><i class="fa-solid fa-user"></i></div>
+              <div class="profile-meta">
+                <div class="p-name">{{USER_NAME}}</div>
+                <div class="p-email">{{USER_EMAIL}}</div>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <a class="btn-logout" href="/logout">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              Se déconnecter
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ HERO ══════════════════════════════════════════════ -->
+  <section class="hero">
+    <div class="hero-eyebrow">
+      <i class="fa-solid fa-circle-dot"></i>
+      Plateforme Intelligence Artificielle
+    </div>
+    <h1>
+      Bienvenue sur le<br/>
+      <span class="gradient-text">Portail IA Sonatel</span>
+    </h1>
+    <p>Accédez à l'ensemble des applications et outils d'intelligence artificielle déployés au sein du groupe Sonatel.</p>
+
+    <div class="search-bar">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="searchInput" placeholder="Rechercher une application..." oninput="filterCards()" />
+      <button onclick="filterCards()">Rechercher</button>
+    </div>
+  </section>
+
+  <!-- ═══ FEATURED APPS ═════════════════════════════════════ -->
+  <div class="section-header">
+    <h2>Applications <span>Principales</span></h2>
+    <span class="count-badge" id="cardCount"></span>
+  </div>
+
+  <div class="cards-grid" id="cardsGrid">
+
+    <!-- Card 1 -->
+    <a class="card" href="{{APP_CHATBOT_URL}}" target="_blank" data-name="chatbot assistant">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-green">
+          <i class="fa-solid fa-comments"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>Sonatel Databot</h3>
+        <p>Assistant conversationnel intelligent basé sur les LLM pour répondre aux questions internes.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">IA</span> 
+        <span class="card-status"><span class="status-dot"></span> En ligne</span>
+      </div>
+    </a>
+
+    <!-- Card 2 -->
+    <!-- <a class="card" href="{{APP_COLOMBO_URL}}" target="_blank" data-name="analyse documents rag">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-teal">
+          <i class="fa-solid fa-file-magnifying-glass"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>Analyse de Documents</h3>
+        <p>Extraction et analyse automatique d'informations depuis des documents PDF, Word et Excel.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">RAG</span>
+        <span class="card-status"><span class="status-dot"></span> En ligne</span>
+      </div>
+    </a> -->
+
+    <!-- Card 3 -->
+    <a class="card" href="{{APP_COLOMBO_URL}}" target="_blank" data-name="tableau de bord analytics">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-lime">
+          <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>Colombo Analytics</h3>
+        <p>Visualisation en temps réel des indicateurs de performance et de l'activité réseau Sonatel.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">IA</span><span class="card-tag">SCRAPING</span>
+        <span class="card-status"><span class="status-dot"></span> En ligne</span>
+      </div>
+    </a>
+
+    <!-- Card 4 -->
+    <a class="card" href="{{APP_CV_ANALYTICS_URL}}" target="_blank" data-name="cv analysers compétences expérience">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-amber">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>CV Analysers</h3>
+        <p>Système de détection et d'analyse des CV pour identifier les compétences et les expériences pertinentes.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">NLP</span><span class="card-tag">IA</span>
+        <span class="card-status"><span class="status-dot"></span> En ligne</span>
+      </div>
+    </a>
+
+    <!-- Card 5 -->
+    <!-- <a class="card" href="{{APP_OCR_URL}}" target="_blank" data-name="ocr reconnaissance texte image">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-cyan">
+          <i class="fa-solid fa-eye"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>OCR & Vision IA</h3>
+        <p>Reconnaissance optique de caractères et analyse d'images par vision artificielle.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">Vision</span>
+        <span class="card-status"><span class="status-dot"></span> En ligne</span>
+      </div>
+    </a> -->
+
+    <!-- Card 6 -->
+    <!-- <a class="card" href="{{APP_CHURN_URL}}" target="_blank" data-name="prédiction churn client">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-blue">
+          <i class="fa-solid fa-users-gear"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>Prédiction Churn</h3>
+        <p>Anticipation de l'attrition client grâce aux modèles prédictifs et aux données comportementales.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">Prédictif</span>
+        <span class="card-status"><span class="status-dot"></span> En ligne</span>
+      </div> -->
+    </a>
+
+    <!-- Card 7 -->
+    <!-- <a class="card" href="{{APP_RAPPORTS_URL}}" target="_blank" data-name="génération rapport automatique">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-purple">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>Génération de Rapports</h3>
+        <p>Création automatique de rapports structurés et de synthèses via des modèles génératifs.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">GenAI</span>
+        <span class="card-status"><span class="status-dot offline"></span> Maintenance</span>
+      </div>
+    </a> -->
+
+    <!-- Card 8 -->
+    <!-- <a class="card" href="{{APP_MAINTENANCE_URL}}" target="_blank" data-name="réseau prédiction maintenance">
+      <div class="card-header">
+        <div class="card-icon-wrap icon-rose">
+          <i class="fa-solid fa-network-wired"></i>
+        </div>
+        <i class="fa-solid fa-arrow-up-right card-arrow"></i>
+      </div>
+      <div class="card-body">
+        <h3>Maintenance Prédictive</h3>
+        <p>Surveillance et prédiction des pannes réseau pour une intervention proactive sur l'infrastructure.</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">IoT</span>
+        <span class="card-status"><span class="status-dot"></span> En ligne</span>
+      </div>
+    </a> -->
+
+  </div>
+
+  <div class="divider"><hr/></div>
+
+  <!-- ═══ FOOTER ════════════════════════════════════════════ -->
+  <footer>
+    &copy; 2026 <strong>Sonatel</strong> — Direction Innovation &amp; Intelligence Artificielle &nbsp;·&nbsp;
+    Tous droits réservés
+  </footer>
+
+  <!-- ═══ SEARCH SCRIPT ══════════════════════════════════════ -->
+  <script>
+    function filterCards() {
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      const cards = document.querySelectorAll('#cardsGrid .card');
+      let visible = 0;
+
+      cards.forEach(card => {
+        const name = (card.dataset.name || '').toLowerCase();
+        const title = card.querySelector('h3').textContent.toLowerCase();
+        const desc  = card.querySelector('p').textContent.toLowerCase();
+        const match = !query || name.includes(query) || title.includes(query) || desc.includes(query);
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+
+      document.getElementById('cardCount').textContent = visible + ' App' + (visible > 1 ? 's' : '');
+    }
+
+    // Enter key support
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') filterCards();
+    });
+
+    // Initialisation du compteur au chargement
+    filterCards();
+
+    // ── Dropdown profil ──────────────────────────────────────
+    function toggleProfile() {
+      document.getElementById('profileDropdown').classList.toggle('open');
+    }
+
+    // Fermer le dropdown en cliquant ailleurs
+    document.addEventListener('click', function(e) {
+      const wrap = document.getElementById('profileBtn');
+      const drop = document.getElementById('profileDropdown');
+      if (drop && !wrap.contains(e.target) && !drop.contains(e.target)) {
+        drop.classList.remove('open');
+      }
+    });
+  </script>
+
+</body>
+</html>
