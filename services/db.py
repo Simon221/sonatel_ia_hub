@@ -1,20 +1,15 @@
 """
 services/db.py — Sonatel IA Hub
 ================================
-Gestion des projets/applications via PostgreSQL.
+Gestion des projets/applications et des administrateurs via PostgreSQL.
 
 Variable .env requise
 ---------------------
   DATABASE_URL   ex: postgresql://user:password@localhost:5432/sonatel_ia_hub
 
-Variables optionnelles
-----------------------
-  ADMIN_GROUPS   groupes Keycloak autorisés à gérer les projets (virgule-séparé)
-                 ex: admins,ia-team
-  ADMIN_USERS    logins (preferred_username) autorisés (virgule-séparé)
-                 ex: john.doe,admin
-  Si ni ADMIN_GROUPS ni ADMIN_USERS ne sont définis, tout utilisateur
-  authentifié peut accéder à l'espace admin (comportement permissif pour dev).
+La liste des administrateurs est stockée dans la table `admins`.
+Seuls les comptes dont l'email (Keycloak) figure dans cette table
+peuvent accéder à l'espace d'administration.
 """
 
 from __future__ import annotations
@@ -116,10 +111,20 @@ def init_db() -> bool:
                 END IF;
             END $$;
         """)
+        # Table admins
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                id           SERIAL       PRIMARY KEY,
+                email        VARCHAR(320) NOT NULL UNIQUE,
+                display_name VARCHAR(200) NOT NULL DEFAULT '',
+                created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+                created_by   VARCHAR(320) NOT NULL DEFAULT 'system'
+            );
+        """)
         conn.commit()
         cur.close()
         conn.close()
-        logger.info("[db] Table 'projects' prête.")
+        logger.info("[db] Tables 'projects' et 'admins' prêtes.")
         return True
     except Exception as exc:
         logger.error("[db] init_db échoué : %s", exc)
@@ -285,3 +290,121 @@ def delete_project(project_id: int) -> bool:
     except Exception as exc:
         logger.error("[db] delete_project(%s) : %s", project_id, exc)
         return False
+
+
+# ─────────────────────────────────────────────────────────────
+#  Gestion des administrateurs
+# ─────────────────────────────────────────────────────────────
+
+_ADMIN_COLS = ("id", "email", "display_name", "created_at", "created_by")
+
+
+def _to_admin_dict(row: tuple) -> dict:
+    d = dict(zip(_ADMIN_COLS, row))
+    if isinstance(d.get("created_at"), datetime):
+        d["created_at"] = d["created_at"].isoformat()
+    return d
+
+
+def is_admin_email(email: str) -> bool:
+    """Vérifie si l'email est dans la table admins (insensible à la casse)."""
+    if not DB_AVAILABLE or not email:
+        return False
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT 1 FROM admins WHERE LOWER(email) = LOWER(%s) LIMIT 1;",
+            (email.strip(),)
+        )
+        found = cur.fetchone() is not None
+        cur.close()
+        conn.close()
+        return found
+    except Exception as exc:
+        logger.error("[db] is_admin_email : %s", exc)
+        return False
+
+
+def get_admins() -> list[dict]:
+    """Retourne tous les administrateurs triés par email."""
+    if not DB_AVAILABLE:
+        return []
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT {', '.join(_ADMIN_COLS)} FROM admins ORDER BY email ASC;"
+        )
+        rows = [_to_admin_dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return rows
+    except Exception as exc:
+        logger.error("[db] get_admins : %s", exc)
+        return []
+
+
+def add_admin(email: str, display_name: str, created_by: str) -> dict | None:
+    """
+    Ajoute un administrateur. Retourne l'entrée créée ou None.
+    Si l'email existe déjà, retourne l'entrée existante.
+    """
+    if not DB_AVAILABLE:
+        return None
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            INSERT INTO admins (email, display_name, created_by)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (email) DO UPDATE
+                SET display_name = EXCLUDED.display_name
+            RETURNING {', '.join(_ADMIN_COLS)};
+            """,
+            (email.strip().lower(), display_name.strip(), created_by.strip()),
+        )
+        row = _to_admin_dict(cur.fetchone())
+        conn.commit()
+        cur.close()
+        conn.close()
+        return row
+    except Exception as exc:
+        logger.error("[db] add_admin : %s", exc)
+        return None
+
+
+def delete_admin(admin_id: int) -> bool:
+    """Supprime un administrateur par son id. Retourne True si supprimé."""
+    if not DB_AVAILABLE:
+        return False
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM admins WHERE id = %s;", (int(admin_id),))
+        deleted = cur.rowcount > 0
+        conn.commit()
+        cur.close()
+        conn.close()
+        return deleted
+    except Exception as exc:
+        logger.error("[db] delete_admin(%s) : %s", admin_id, exc)
+        return False
+
+
+def admin_count() -> int:
+    """Nombre d'admins en base (pour empêcher la suppression du dernier)."""
+    if not DB_AVAILABLE:
+        return 0
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM admins;")
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return count
+    except Exception as exc:
+        logger.error("[db] admin_count : %s", exc)
+        return 0

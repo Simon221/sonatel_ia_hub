@@ -71,3 +71,20 @@ VALUES
     3
   )
 ON CONFLICT DO NOTHING;
+
+-- ─────────────────────────────────────────────────────────────
+-- Table des administrateurs du portail
+-- Identifié par l'email (source de vérité : Keycloak / AD)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS admins (
+    id           SERIAL       PRIMARY KEY,
+    email        VARCHAR(320) NOT NULL UNIQUE,
+    display_name VARCHAR(200) NOT NULL DEFAULT '',
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_by   VARCHAR(320) NOT NULL DEFAULT 'system'
+);
+
+-- Administrateur par défaut
+INSERT INTO admins (email, display_name, created_by)
+VALUES ('simonpierre.diouf@orange-sonatel.com', 'Simon Pierre Diouf', 'system')
+ON CONFLICT (email) DO NOTHING;

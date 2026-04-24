@@ -583,6 +583,109 @@
     .icon-blue   { background: rgba(40,130,230,0.15);color: #3a9cf0; }
     .icon-rose   { background: rgba(220,60,100,0.15);color: #e05080; }
 
+    /* ── Section Admins ─────────────────────────────────── */
+    .admins-section {
+      margin-top: 48px;
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .admins-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .admins-section-header h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0;
+    }
+    .add-admin-form {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.12);
+    }
+    .add-admin-form input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.87rem;
+      font-family: inherit;
+      flex: 1;
+      min-width: 180px;
+    }
+    .add-admin-form input::placeholder { color: var(--text-secondary); }
+    .add-admin-form input:focus { outline: none; border-color: var(--accent); }
+    .btn-add-admin {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-size: 0.87rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .btn-add-admin:disabled { opacity: 0.6; cursor: not-allowed; }
+    .admins-table-wrap { overflow-x: auto; }
+    .admins-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.87rem;
+    }
+    .admins-table th {
+      padding: 12px 16px;
+      text-align: left;
+      color: var(--text-secondary);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .admins-table td {
+      padding: 12px 16px;
+      color: var(--text);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .admins-table tr:last-child td { border-bottom: none; }
+    .admins-table .empty-row td {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 32px;
+    }
+    .btn-del-admin {
+      background: rgba(237,73,80,0.13);
+      color: var(--danger);
+      border: 1px solid rgba(237,73,80,0.22);
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .badge-me {
+      display: inline-block;
+      background: rgba(255,182,0,0.18);
+      color: #f0a81e;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
     /* ── Responsive ──────────────────────────────────── */
     @media (max-width: 640px) {
       .header-inner { height: 56px; }
@@ -685,6 +788,52 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- ═══ SECTION ADMINS ════════════════════════════════ -->
+    <div class="admins-section">
+      <div class="admins-section-header">
+        <h2>
+          <i class="fa-solid fa-user-shield" style="color:var(--accent);margin-right:10px;"></i>
+          Administrateurs
+        </h2>
+      </div>
+
+      <!-- Formulaire ajout admin -->
+      <form class="add-admin-form" id="addAdminForm" onsubmit="addAdmin(event)" novalidate>
+        <input type="email" id="adminEmail"
+               placeholder="Email (ex: prenom.nom@orange-sonatel.com)"
+               required maxlength="250" autocomplete="off" />
+        <input type="text" id="adminDisplayName"
+               placeholder="Nom affiché (optionnel)"
+               maxlength="150" />
+        <button type="submit" class="btn-add-admin" id="btnAddAdmin">
+          <i class="fa-solid fa-plus" style="margin-right:6px;"></i>Ajouter
+        </button>
+      </form>
+
+      <!-- Table des admins -->
+      <div class="admins-table-wrap">
+        <table class="admins-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Nom affiché</th>
+              <th>Ajouté le</th>
+              <th>Ajouté par</th>
+              <th style="width:80px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminsBody">
+            <tr class="empty-row">
+              <td colspan="5">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+                Chargement…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div><!-- /main -->
@@ -821,6 +970,7 @@
     let _projects = [];
     let _deleteId = null;
     const DB_STATUS = "{{DB_STATUS}}";
+    const CURRENT_USER_EMAIL = "{{USER_EMAIL}}".toLowerCase();
 
     // ── Init ────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
@@ -829,6 +979,7 @@
         document.getElementById('btnNew').disabled = true;
       }
       loadProjects();
+      loadAdmins();
     });
 
     // ── Chargement des projets ───────────────────────────────
@@ -1109,6 +1260,101 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') { closeModal(); closeConfirm(); }
     });
+
+    // ═══════════════════════════════════════════════════════
+    // GESTION DES ADMINS
+    // ═══════════════════════════════════════════════════════
+
+    let _admins = [];
+
+    // ── Chargement ──────────────────────────────────────────
+    async function loadAdmins() {
+      try {
+        const res = await fetch('/admin/api/admins', {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        _admins = await res.json();
+        renderAdminsTable();
+      } catch (e) {
+        document.getElementById('adminsBody').innerHTML =
+          `<tr class="empty-row"><td colspan="5"><i class="fa-solid fa-triangle-exclamation"></i> Erreur : ${esc(e.message)}</td></tr>`;
+      }
+    }
+
+    // ── Rendu table admins ───────────────────────────────────
+    function renderAdminsTable() {
+      const tbody = document.getElementById('adminsBody');
+      if (!_admins.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5"><i class="fa-solid fa-users"></i> Aucun administrateur.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = _admins.map(a => {
+        const isMe = (a.email || '').toLowerCase() === CURRENT_USER_EMAIL;
+        const createdAt = a.created_at
+          ? new Date(a.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' })
+          : '—';
+        const meBadge = isMe ? '<span class="badge-me">Vous</span>' : '';
+        const delBtn = isMe
+          ? `<button class="btn-del-admin" disabled title="Impossible de vous supprimer vous-même"><i class="fa-solid fa-ban"></i></button>`
+          : `<button class="btn-del-admin" onclick="deleteAdmin(${a.id}, '${esc(a.email)}')"><i class="fa-solid fa-trash"></i></button>`;
+        return `
+        <tr>
+          <td>${esc(a.email)}${meBadge}</td>
+          <td>${esc(a.display_name || '—')}</td>
+          <td>${createdAt}</td>
+          <td>${esc(a.created_by || '—')}</td>
+          <td>${delBtn}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Ajout admin ──────────────────────────────────────────
+    async function addAdmin(e) {
+      e.preventDefault();
+      const email       = document.getElementById('adminEmail').value.trim();
+      const displayName = document.getElementById('adminDisplayName').value.trim();
+      if (!email) { showToast('Email obligatoire.', 'error'); return; }
+
+      const btn = document.getElementById('btnAddAdmin');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/admin/api/admins', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify({ email, display_name: displayName }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        document.getElementById('addAdminForm').reset();
+        await loadAdmins();
+        showToast(`${esc(email)} ajouté comme administrateur.`, 'success');
+      } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Suppression admin ────────────────────────────────────
+    async function deleteAdmin(id, email) {
+      if (!confirm(`Retirer ${email} des administrateurs ?`)) return;
+      try {
+        const res = await fetch(`/admin/api/admins/${id}`, {
+          method: 'DELETE',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        await loadAdmins();
+        showToast(`${esc(email)} retiré des administrateurs.`, 'success');
+      } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+      }
+    }
   </script>
 
 </body>

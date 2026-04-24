@@ -113,6 +113,8 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_admin_page()
         elif path == "/admin/api/projects":
             self._handle_admin_api_list()
+        elif path == "/admin/api/admins":
+            self._handle_admin_api_list_admins()
         else:
             super().do_GET()
 
@@ -121,6 +123,8 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         path   = parsed.path
         if path == "/admin/api/projects":
             self._handle_admin_api_create()
+        elif path == "/admin/api/admins":
+            self._handle_admin_api_add()
         else:
             self.send_error(404)
 
@@ -136,9 +140,12 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
     def do_DELETE(self) -> None:
         parsed = urlparse(self.path)
         path   = parsed.path
-        m = re.match(r"^/admin/api/projects/(\d+)$", path)
-        if m:
-            self._handle_admin_api_delete(int(m.group(1)))
+        m_proj = re.match(r"^/admin/api/projects/(\d+)$", path)
+        m_adm  = re.match(r"^/admin/api/admins/(\d+)$", path)
+        if m_proj:
+            self._handle_admin_api_delete(int(m_proj.group(1)))
+        elif m_adm:
+            self._handle_admin_api_delete_admin(int(m_adm.group(1)))
         else:
             self.send_error(404)
 
@@ -236,10 +243,11 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
                 return
         else:
             user = None
-        self._serve_index(user)
+        is_adm, _ = self._check_admin(user)
+        self._serve_index(user, is_adm)
 
     # -- Rendu du template index.html ---------------------
-    def _serve_index(self, user: dict = None) -> None:
+    def _serve_index(self, user: dict = None, is_admin: bool = False) -> None:
         index_path = BASE_DIR / "index.html"
         try:
             content = index_path.read_text(encoding="utf-8")
@@ -249,6 +257,18 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
         # Injection des cartes dynamiques depuis la base de données
         content = content.replace("{{CARDS_HTML}}", self._build_cards_html())
+
+        # Bouton espace admin : visible seulement pour les admins
+        if is_admin:
+            admin_link = (
+                '<div class="dropdown-divider"></div>'
+                '<a class="btn-admin" href="/admin">'
+                '<i class="fa-solid fa-gear"></i> Espace Admin'
+                '</a>'
+            )
+        else:
+            admin_link = ""
+        content = content.replace("{{ADMIN_LINK}}", admin_link)
 
         # Injection des infos utilisateur
         if user:
@@ -323,7 +343,8 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
     # -- Espace admin : page HTML -------------------------
     def _handle_admin_page(self) -> None:
-        is_adm, user = self._check_admin()
+        cookie = self.headers.get("Cookie", "")
+        is_adm, user = self._check_admin_from_cookie(cookie)
         if not is_adm:
             self.send_response(403)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -340,16 +361,19 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         except OSError:
             self.send_error(500, "admin.html introuvable")
             return
-        user_name = ""
+        user_name  = ""
+        user_email = ""
         if user:
-            user_name = user.get("name") or user.get("preferred_username") or "Admin"
+            user_name  = user.get("name") or user.get("preferred_username") or "Admin"
+            user_email = user.get("email", "")
         content = content.replace("{{USER_NAME}}",  html.escape(user_name) or "Admin")
+        content = content.replace("{{USER_EMAIL}}", html.escape(user_email))
         content = content.replace("{{DB_STATUS}}", "ok" if DB_AVAILABLE else "disabled")
         self._send_html(content)
 
     # -- Admin API : liste tous les projets ---------------
     def _handle_admin_api_list(self) -> None:
-        is_adm, _ = self._check_admin()
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
         if not is_adm:
             self._send_json({"error": "Accès refusé"}, 403)
             return
@@ -358,7 +382,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
     # -- Admin API : créer un projet ----------------------
     def _handle_admin_api_create(self) -> None:
-        is_adm, _ = self._check_admin()
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
         if not is_adm:
             self._send_json({"error": "Accès refusé"}, 403)
             return
@@ -380,7 +404,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
     # -- Admin API : mettre à jour un projet --------------
     def _handle_admin_api_update(self, project_id: int) -> None:
-        is_adm, _ = self._check_admin()
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
         if not is_adm:
             self._send_json({"error": "Accès refusé"}, 403)
             return
@@ -402,7 +426,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
 
     # -- Admin API : supprimer un projet ------------------
     def _handle_admin_api_delete(self, project_id: int) -> None:
-        is_adm, _ = self._check_admin()
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
         if not is_adm:
             self._send_json({"error": "Accès refusé"}, 403)
             return
@@ -412,25 +436,82 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             return
         self._send_json({"ok": True})
 
+    # -- Admin API : liste des admins ---------------------
+    def _handle_admin_api_list_admins(self) -> None:
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        self._send_json(_db.get_admins() if _db else [])
+
+    # -- Admin API : ajouter un admin ---------------------
+    def _handle_admin_api_add(self) -> None:
+        is_adm, actor = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        data = self._read_json_body()
+        if not data or not data.get("email"):
+            self._send_json({"error": "L'email est obligatoire"}, 400)
+            return
+        email = data["email"].strip().lower()
+        # Validation basique de l'email
+        if "@" not in email or len(email) < 5:
+            self._send_json({"error": "Email invalide"}, 400)
+            return
+        display_name = data.get("display_name", "").strip()
+        created_by   = (actor or {}).get("email", "admin") if actor else "admin"
+        result = _db.add_admin(email, display_name, created_by) if _db else None
+        if result is None:
+            self._send_json({"error": "Erreur lors de l'ajout"}, 500)
+            return
+        self._send_json(result, 201)
+
+    # -- Admin API : supprimer un admin -------------------
+    def _handle_admin_api_delete_admin(self, admin_id: int) -> None:
+        is_adm, _ = self._check_admin_from_cookie(self.headers.get("Cookie", ""))
+        if not is_adm:
+            self._send_json({"error": "Accès refusé"}, 403)
+            return
+        if _db and _db.admin_count() <= 1:
+            self._send_json({"error": "Impossible de supprimer le dernier administrateur"}, 400)
+            return
+        deleted = _db.delete_admin(admin_id) if _db else False
+        if not deleted:
+            self._send_json({"error": "Administrateur introuvable"}, 404)
+            return
+        self._send_json({"ok": True})
+
     # -- Helpers admin ------------------------------------
-    def _check_admin(self) -> tuple:
-        """Retourne (is_admin, user_dict|None)."""
+    def _check_admin_from_cookie(self, cookie: str) -> tuple:
+        """Vérifie auth + droits admin. Retourne (is_admin, user_dict|None)."""
         if not AUTH_AVAILABLE:
+            # Mode dev sans Keycloak : admin si DATABASE_URL présent (sinon toujours True)
             return True, None
-        cookie = self.headers.get("Cookie", "")
         ok, user = _auth.is_authenticated(cookie)
         if not ok:
             return False, None
-        # Pas de restriction configurée → tout utilisateur authentifié est admin
-        if not ADMIN_GROUPS and not ADMIN_USERS:
-            return True, user
-        user_groups  = set(user.get("groups", []))
-        username     = user.get("preferred_username", "")
-        allowed_grps = {g.strip() for g in ADMIN_GROUPS.split(",") if g.strip()}
-        allowed_usrs = {u.strip() for u in ADMIN_USERS.split(",") if u.strip()}
-        if allowed_grps & user_groups or username in allowed_usrs:
-            return True, user
-        return False, None
+        return self._check_admin(user)
+
+    @staticmethod
+    def _check_admin(user: dict | None) -> tuple:
+        """Vérifie si `user` est admin (vérification en DB). Retourne (bool, user)."""
+        if user is None:
+            return False, None
+        email = (user.get("email") or "").strip().lower()
+        if not email:
+            return False, user
+        if _db and DB_AVAILABLE:
+            return _db.is_admin_email(email), user
+        # DB non disponible : fallback sur ADMIN_USERS (env)
+        if ADMIN_USERS:
+            allowed = {u.strip().lower() for u in ADMIN_USERS.split(",") if u.strip()}
+            uname = (user.get("preferred_username") or "").lower()
+            if email in allowed or uname in allowed:
+                return True, user
+            return False, user
+        # Aucune restriction configurée → tout utilisateur authentifié est admin
+        return True, user
 
     def _read_json_body(self) -> dict | None:
         """Lit et décode le corps JSON de la requête."""
