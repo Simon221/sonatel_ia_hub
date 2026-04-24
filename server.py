@@ -119,6 +119,8 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_admin_api_list_users()
         elif path == "/admin/api/projects/all":
             self._handle_admin_api_all_projects_simple()
+        elif re.match(r"^/go/\d+$", path):
+            self._handle_go_redirect(path)
         else:
             super().do_GET()
 
@@ -343,7 +345,7 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
             has_access = allowed_ids is None or p["id"] in allowed_ids
             if has_access:
                 parts.append(
-                    f'<a class="card" href="{purl}" target="_blank" data-name="{search_data}">'
+                    f'<a class="card" href="/go/{p["id"]}" target="_blank" data-name="{search_data}">'
                     f'<div class="card-header">'
                     f'<div class="card-icon-wrap {icon_color}"><i class="{icon_cls}"></i></div>'
                     f'<i class="fa-solid fa-arrow-up-right card-arrow"></i>'
@@ -400,6 +402,69 @@ class SonatelHandler(http.server.SimpleHTTPRequestHandler):
         content = content.replace("{{USER_EMAIL}}", html.escape(user_email))
         content = content.replace("{{DB_STATUS}}", "ok" if DB_AVAILABLE else "disabled")
         self._send_html(content)
+
+    # -- /go/<id> : redirige vers l'URL réelle du projet ---
+    def _handle_go_redirect(self, path: str) -> None:
+        """Masque l'URL réelle : sert une page iframe plein écran pointant vers l'app."""
+        m = re.match(r"^/go/(\d+)$", path)
+        if not m:
+            self.send_error(404)
+            return
+        project_id = int(m.group(1))
+
+        # Vérification de l'authentification
+        if AUTH_AVAILABLE:
+            cookie_header = self.headers.get("Cookie", "")
+            ok, user = _auth.is_authenticated(cookie_header)
+            if not ok:
+                self._redirect("/login")
+                return
+        else:
+            user = None
+
+        if _db is None or not DB_AVAILABLE:
+            self.send_error(503)
+            return
+
+        project = _db.get_project_by_id(project_id)
+        if not project:
+            self.send_error(404)
+            return
+
+        # Vérification des droits d'accès utilisateur
+        user_email = (user or {}).get("email", "") if user else ""
+        if user_email:
+            allowed_ids = _db.get_user_allowed_project_ids(user_email)
+            if allowed_ids is not None and project_id not in allowed_ids:
+                self.send_error(403)
+                return
+
+        target_url = project.get("url", "")
+        if not target_url:
+            self.send_error(404)
+            return
+
+        # Sert une page iframe plein écran — l'URL réelle n'apparaît jamais dans
+        # la barre d'adresse du navigateur.
+        app_name = html.escape(project.get("name") or "Application")
+        safe_url = html.escape(target_url)
+        iframe_page = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{app_name}</title>
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    html, body {{ height: 100%; overflow: hidden; }}
+    iframe {{ width: 100%; height: 100%; border: none; display: block; }}
+  </style>
+</head>
+<body>
+  <iframe src="{safe_url}" allowfullscreen></iframe>
+</body>
+</html>"""
+        self._send_html(iframe_page)
 
     # -- Admin API : liste tous les projets ---------------
     def _handle_admin_api_list(self) -> None:

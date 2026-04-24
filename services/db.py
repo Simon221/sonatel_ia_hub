@@ -166,6 +166,26 @@ def _to_dict(row: tuple) -> dict:
 #  Lecture
 # ─────────────────────────────────────────────────────────────
 
+def get_project_by_id(project_id: int) -> dict | None:
+    """Retourne un projet actif par son id, ou None s'il n'existe pas."""
+    if not DB_AVAILABLE:
+        return None
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT {', '.join(_COLS)} FROM projects WHERE id = %s AND is_active = TRUE;",
+            (project_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return _to_dict(row) if row else None
+    except Exception as exc:
+        logger.error("[db] get_project_by_id : %s", exc)
+        return None
+
+
 def get_active_projects() -> list[dict]:
     """Retourne les projets actifs triés par display_order, puis id."""
     if not DB_AVAILABLE:
